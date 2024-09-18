@@ -1,0 +1,4 @@
+discord_community_server/.env
+discord_community_server/node_modules
+discord_community_server/package-lock.json
+# .gitignore

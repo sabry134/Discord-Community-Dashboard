@@ -1,0 +1,99 @@
+{
+    "Home": {},
+    "Advertiser": {
+      "Discord server embed": {
+        "embed_content": "string"
+      }
+    },
+    "Admin": {
+      "System in dashboard for this": {
+        "Discord": {
+          "ADD_TO_SERVER": "boolean",
+          "DISCORD_CLIENT_ID": "string",
+          "DISCORD_CLIENT_SECRET": "string",
+          "DISCORD_BOT_TOKEN": "string",
+          "DEFAULT_ID": "string",
+          "ADMIN_DEFAULT_ID": "string",
+          "GUILD_ID": "string"
+        },
+        "Channel": {
+          "CHANNEL_GROUPS": "string",
+          "HIDE/SHOW_GROUPS": "boolean"
+        },
+        "Shop": {
+          "ROLE_SHOP_SETUP": {
+            "ID": "string",
+            "PRICE": "integer"
+          },
+          "POINTS_MANAGEMENT": {
+            "ADD_POINTS": "integer",
+            "REMOVE_POINTS": "integer"
+          }
+        },
+        "Api": {
+          "PUBLIC_API": "string"
+        },
+        "Users": {
+          "USERS": {
+            "ban user": "boolean",
+            "roles": "array"
+          }
+        },
+        "COMMUNITY_EVENTS": {
+          "Setup tournament channels/events channels": "string"
+        },
+        "Dashboard": {
+          "RULES": "string",
+          "STAFF_LIST": "array"
+        },
+        "Announcements": {
+          "DASHBOARD_ANNOUNCEMENTS": "string",
+          "COMMUNITY POSTS": "string",
+          "ANNOUNCEMENT_CHANNEL": "string",
+          "NEW_ANNOUNCEMENT": "string"
+        },
+        "Recruitment": {
+          "Users can play music in a VC using the dashboard": "boolean"
+        },
+        "Settings": {
+          "ROLE_NOTIFICATION_PREFERENCE": "string",
+          "CRON MANAGEMENT": {
+            "AREA": "string"
+          },
+          "AVATAR": "string",
+          "NAME": "string"
+        },
+        "Community": {
+          "LETS_PLAY": {
+            "Webhook sending a message in server saying someone is looking for a partner": "string"
+          }
+        },
+        "Support": {
+          "TICKET_SYSTEM": "string"
+        },
+        "Moderators": {
+          "MODERATION_PANEL": {
+            "Evidence handlers": {
+              "User/evidence link": "string",
+              "dashboard punishment system": {
+                "controls a bot to issue the muted role for a specific time": "string"
+              }
+            }
+          }
+        },
+        "Bot Management": {
+          "COMMANDS_MANAGEMENT": {
+            "ENABLE/DISABLE": "boolean"
+          },
+          "COMMANDS TO BE ADDED IN A SPECIFIC FOLDER": "string",
+          "BOT_CRON": {
+            "Send a message every": "string"
+          },
+          "BOT_STARTER": {
+            "Start/stop a bot": "boolean"
+          }
+        }
+      }
+    }
+  }
+  
