@@ -43,3 +43,4 @@ For more details on each feature, please refer to the documentation provided.
 - Music
 - Guild management (allow a bot to leave a server via the dashboard)
 - Set up a community (allow the bot to create a community server, to delete it etc...)
+- NPM developer package template (& publishing guide)
