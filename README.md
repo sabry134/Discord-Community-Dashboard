@@ -40,7 +40,7 @@ cd discord_community_server && node server.js
 
 You need to create a .env file in the discord_community_server directory to configure your application. The following variables must be included in your .env file:
 
-```
+```env
 MONGODB_URI=
 DISCORD_CLIENT_ID=
 DISCORD_CLIENT_SECRET=
