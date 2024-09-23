@@ -16,8 +16,14 @@ nvm use 18
 
 To start the application using Docker, run:
 
-```
+```bash
 ./start.sh
+```
+
+To stop the Docker, please run:
+
+```bash
+./stop.sh
 ```
 
 
@@ -25,13 +31,13 @@ To start the application using Docker, run:
 
 To start the application without Docker, open a terminal and run:
 
-```
+```bash
 cd discord_community_front && ./start_no_docker.sh
 ```
 
 In another terminal, start the backend server:
 
-```
+```bash
 cd discord_community_server && node server.js
 ```
 
