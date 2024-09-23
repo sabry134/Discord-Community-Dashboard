@@ -71,7 +71,7 @@ crypto.randomUUID()
 
 DEFAULT_ID & ADMIN_DEFAULT_ID: Your discord ID
 GUILD_ID: Your server ID
-DISCORD_EVERYONE_ROLE_ID: The ID for the @everyone role
+DISCORD_EVERYONE_ROLE_ID: The ID for the @everyone role (same as your Guild ID)
 
 
 # Discord Oauth setup
