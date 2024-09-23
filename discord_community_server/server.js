@@ -335,6 +335,7 @@ const BannedUser = mongoose.model('BannedUser', bannedUserSchema);
 
 
 const PostSchema = new mongoose.Schema({
+  post_id: { type: Number, unique: true },
   post_title: { type: String, required: true },
   post_content: { type: String, required: true },
   post_image: { type: String, default: null },
@@ -343,6 +344,15 @@ const PostSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 const Post = mongoose.model('Post', PostSchema);
+
+
+
+const PostCounterSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  seq: { type: Number, default: 0 }
+});
+
+const PostCounter = mongoose.model('PostCounter', PostCounterSchema);
 
 
 const positionSchema = new mongoose.Schema({
@@ -364,6 +374,102 @@ const waitingTimeSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 const WaitingTime = mongoose.model('WaitingTime', waitingTimeSchema);
+
+const announcementSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  content: { type: String, default: '' },
+  image: { type: String, default: '' },
+  author: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now }
+});
+
+const Announcement = mongoose.model('Announcement', announcementSchema);
+
+
+const logSchema = new mongoose.Schema({
+  id: { type: Number, required: true },
+  moderator: { type: String, required: true },
+  actionType: { type: String, required: true },
+  reason: { type: String, required: false },
+  details: { type: String, required: false },
+  timestamp: { type: Date, default: Date.now }
+});
+
+const Log = mongoose.model('Log', logSchema);
+
+async function getNextLogId() {
+  const lastEntry = await Moderation.findOne({}, {}, { sort: { id: -1 } });
+  return lastEntry && lastEntry.id ? lastEntry.id + 1 : 0;
+}
+
+
+
+app.post('/new-announcement', validateOrigin, limiter, async (req, res) => {
+  const { title, content, image, author } = req.body;
+
+  if (!title) {
+    return res.status(400).json({ message: 'Title is required' });
+  }
+
+  if (!content && !image) {
+    return res.status(400).json({ message: 'Either content or image must be provided' });
+  }
+
+  try {
+    const newAnnouncement = new Announcement({
+      title,
+      content,
+      image,
+      author,
+      createdAt: new Date()
+    });
+    await newAnnouncement.save();
+    res.status(201).json({ message: 'Announcement created successfully', announcement: newAnnouncement });
+  } catch (error) {
+    console.error('Error creating announcement:', error);
+    res.status(500).json({ message: 'Failed to create announcement' });
+  }
+});
+
+app.get('/view-announcement', validateOrigin, limiter, async (req, res) => {
+  try {
+    const announcements = await Announcement.find().sort({ createdAt: -1 });
+    res.status(200).json(announcements);
+  } catch (error) {
+    console.error('Error fetching announcements:', error);
+    res.status(500).json({ message: 'Failed to fetch announcements' });
+  }
+});
+
+app.delete('/delete-announcement/:id', validateOrigin, limiter, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await Announcement.findByIdAndDelete(id);
+    res.status(200).json({ message: 'Announcement deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting announcement:', error);
+    res.status(500).json({ message: 'Failed to delete announcement' });
+  }
+});
+
+app.put('/edit-announcement/:id', validateOrigin, limiter, async (req, res) => {
+  const { id } = req.params;
+  const { title, content, image, author } = req.body;
+
+  try {
+    await Announcement.findByIdAndUpdate(id, {
+      title,
+      content,
+      image,
+      author,
+      createdAt: new Date()
+    });
+    res.status(200).json({ message: 'Announcement updated successfully' });
+  } catch (error) {
+    console.error('Error updating announcement:', error);
+    res.status(500).json({ message: 'Failed to update announcement' });
+  }
+});
 
 
 app.get('/linked-role', limiter, async (req, res) => {
@@ -425,6 +531,15 @@ async function updateMetadata(userId) {
     console.error(`Error updating metadata: ${e.message}`);
   }
 }
+
+const getNextSequence = async (name) => {
+  const counter = await PostCounter.findOneAndUpdate(
+    { name },
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
+  return counter.seq;
+};
 
 
 
@@ -667,17 +782,51 @@ app.post('/apply-position/:position_name', limiter, validateOrigin, async (req, 
   }
 });
 
+app.delete('/delete-post/:id', limiter, validateOrigin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: 'Invalid post ID' });
+    }
+
+    const deletedPost = await Post.findOneAndDelete({ post_id: id });
+
+    if (deletedPost) {
+      res.status(200).json({ message: 'Post deleted successfully' });
+    } else {
+      res.status(404).json({ message: 'Post not found' });
+    }
+  } catch (error) {
+    console.error('Error deleting post:', error);
+    res.status(500).json({ message: 'Failed to delete post' });
+  }
+});
+
 
 
 
 app.post('/new-post', limiter, validateOrigin, async (req, res) => {
   const { post_title, post_content, post_image, post_author, author_image } = req.body;
 
+  if (!post_title || post_title.trim() === '') {
+    return res.status(400).json({ message: 'Post title is required.' });
+  }
+
+  const hasContent = post_content && post_content.trim() !== '';
+  const hasImage = post_image && post_image.trim() !== '';
+
+  if (!(hasContent || hasImage)) {
+    return res.status(400).json({ message: 'Either post content or post image is required.' });
+  }
+
   try {
+    const post_id = await getNextSequence('post_id');
+
     const newPost = new Post({
+      post_id,
       post_title,
-      post_content,
-      post_image: post_image || null,
+      post_content: hasContent ? post_content : null,
+      post_image: hasImage ? post_image : null,
       post_author,
       author_image,
     });
@@ -694,15 +843,22 @@ app.post('/new-post', limiter, validateOrigin, async (req, res) => {
   }
 });
 
+
+
+
 app.get('/all-posts', limiter, validateOrigin, async (req, res) => {
   try {
-    const posts = await Post.find().sort({ createdAt: -1 }).select('-_id -__v');
+    const posts = await Post.find()
+      .sort({ createdAt: -1 })
+      .select('-__v');
+    
     res.status(200).json(posts);
   } catch (error) {
     console.error('Error fetching posts:', error);
     res.status(500).json({ message: 'Failed to fetch posts' });
   }
 });
+
 
 
 app.post('/ban-user', limiter, validateOrigin, async (req, res) => {
@@ -720,6 +876,9 @@ app.post('/ban-user', limiter, validateOrigin, async (req, res) => {
     res.status(500).json({ error: 'Failed to ban user' });
   }
 });
+
+
+
 
 app.post('/unban-user', limiter, validateOrigin, async (req, res) => {
   const { userId } = req.body;
@@ -1781,67 +1940,7 @@ app.post('/is-valid-id', limiter, validateOrigin, async (req, res) => {
   }
 });
 
-app.post('/unmute-user', limiter, validateOrigin, async (req, res) => {
-  const { user_id } = req.body;
 
-  if (!user_id) {
-    return res.status(400).json({ error: 'user_id is required' });
-  }
-
-  try {
-    const setup = await ModerationSetup.findOne();
-    const guildId = process.env.GUILD_ID;
-
-    if (setup && setup.muted_role) {
-      await axios.delete(
-        `https://discord.com/api/v10/guilds/${guildId}/members/${user_id}/roles/${setup.muted_role}`,
-        {
-          headers: {
-            Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
-          },
-        }
-      );
-
-      await Moderation.updateMany({ user_id, type: 'MUTE' }, { $set: { status: 'unmuted' } });
-
-      res.status(200).json({ message: 'User has been unmuted successfully' });
-    } else {
-      res.status(404).json({ error: 'Muted role not found' });
-    }
-  } catch (error) {
-    console.error('Error unmuting user:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-
-
-app.post('/unban-user', limiter, validateOrigin, async (req, res) => {
-  const { user_id } = req.body;
-
-  if (!user_id) {
-    return res.status(400).json({ error: 'user_id is required' });
-  }
-
-  try {
-    const guildId = process.env.GUILD_ID;
-
-    await axios.delete(
-      `https://discord.com/api/v10/guilds/${guildId}/bans/${user_id}`,
-      {
-        headers: {
-          Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
-        },
-      }
-    );
-
-    await Moderation.updateMany({ user_id, type: 'BAN' }, { $set: { status: 'unbanned' } });
-
-    res.status(200).json({ message: 'User has been unbanned successfully' });
-  } catch (error) {
-    console.error('Error unbanning user:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
 
 
 cron.schedule('0 * * * *', async () => {
@@ -1984,6 +2083,28 @@ async function sendDM(user_id, action, reason) {
   }
 }
 
+
+app.get('/logs', validateOrigin, limiter, async (req, res) => {
+  try {
+    const logs = await Log.find().sort({ timestamp: -1 });
+    const formattedLogs = logs.map(log => ({
+      title: `Log #${log.id}`,
+      moderator: log.moderator,
+      actionType: log.actionType,
+      reason: log.reason || 'N/A',
+      details: log.details || 'N/A',
+      timestamp: log.timestamp,
+    }));
+
+    res.status(200).json(formattedLogs);
+  } catch (error) {
+    console.error('Error fetching logs:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+
+
 app.post('/warn-user', limiter, validateOrigin, async (req, res) => {
   const { user_id, reason, evidence, moderator } = req.body;
 
@@ -1993,6 +2114,9 @@ app.post('/warn-user', limiter, validateOrigin, async (req, res) => {
 
   try {
     const nextId = await getNextId();
+    if (isNaN(nextId)) {
+      return res.status(500).json({ error: 'Failed to generate next ID' });
+    }
 
     const newModeration = new Moderation({
       id: nextId,
@@ -2004,8 +2128,22 @@ app.post('/warn-user', limiter, validateOrigin, async (req, res) => {
     });
 
     await newModeration.save();
-
     
+    const logId = await getNextLogId();
+    if (isNaN(logId)) {
+      return res.status(500).json({ error: 'Failed to generate log ID' });
+    }
+
+    const logEntry = new Log({
+      id: logId,
+      moderator,
+      actionType: 'WARN',
+      reason,
+      details: evidence || null,
+    });
+
+    await logEntry.save();
+
     await sendDM(user_id, 'warned', reason);
 
     const response = newModeration.toObject();
@@ -2021,6 +2159,8 @@ app.post('/warn-user', limiter, validateOrigin, async (req, res) => {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
+
+
 
 app.post('/mute-user', limiter, validateOrigin, async (req, res) => {
   const { user_id, duration, reason, evidence, moderator } = req.body;
@@ -2043,9 +2183,19 @@ app.post('/mute-user', limiter, validateOrigin, async (req, res) => {
     });
 
     await newModeration.save();
-
     
-    await sendDM(user_id, 'muted', `Reason: ${reason}, Duration: ${duration}`);
+    const logId = await getNextLogId();
+    const logEntry = new Log({
+      id: logId,
+      moderator,
+      actionType: 'MUTE',
+      reason,
+      details: `Duration: ${duration}, Evidence: ${evidence || 'N/A'}`,
+    });
+
+    await logEntry.save();
+
+    await sendDM(user_id, 'muted', `for the following reason: ${reason}. Duration: ${duration}`);
 
     const setup = await ModerationSetup.findOne();
     const guildId = process.env.GUILD_ID;
@@ -2080,6 +2230,7 @@ app.post('/mute-user', limiter, validateOrigin, async (req, res) => {
 
 
 
+
 app.post('/kick-user', limiter, validateOrigin, async (req, res) => {
   const { user_id, reason, evidence, moderator } = req.body;
 
@@ -2100,8 +2251,18 @@ app.post('/kick-user', limiter, validateOrigin, async (req, res) => {
     });
 
     await newModeration.save();
-
     
+    const logId = await getNextLogId();
+    const logEntry = new Log({
+      id: logId,
+      moderator,
+      actionType: 'KICK',
+      reason,
+      details: evidence || null,
+    });
+
+    await logEntry.save();
+
     await sendDM(user_id, 'kicked', reason);
     const guildId = process.env.GUILD_ID;
 
@@ -2128,7 +2289,51 @@ app.post('/kick-user', limiter, validateOrigin, async (req, res) => {
   }
 });
 
-app.post('/ban-user', limiter, validateOrigin, async (req, res) => {
+app.post('/unmute-user', limiter, validateOrigin, async (req, res) => {
+  const { user_id, moderator } = req.body;
+
+  if (!user_id || !moderator) {
+    return res.status(400).json({ error: 'user_id and moderator are required' });
+  }
+
+  try {
+    const setup = await ModerationSetup.findOne();
+    const guildId = process.env.GUILD_ID;
+
+    if (setup && setup.muted_role) {
+      await axios.delete(
+        `https://discord.com/api/v10/guilds/${guildId}/members/${user_id}/roles/${setup.muted_role}`,
+        {
+          headers: {
+            Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+          },
+        }
+      );
+
+      await Moderation.updateMany({ user_id, type: 'MUTE' }, { $set: { status: 'unmuted' } });
+
+      const logId = await getNextLogId();
+      const logEntry = new Log({
+        id: logId,
+        moderator,
+        actionType: 'UNMUTE',
+        user_id,
+      });
+
+      await logEntry.save();
+
+      res.status(200).json({ message: 'User has been unmuted successfully' });
+    } else {
+      res.status(404).json({ error: 'Muted role not found' });
+    }
+  } catch (error) {
+    console.error('Error unmuting user:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+
+app.post('/discord-ban-user', limiter, validateOrigin, async (req, res) => {
   const { user_id, duration, reason, evidence, moderator } = req.body;
 
   if (!user_id || !duration || !reason || !moderator) {
@@ -2149,8 +2354,18 @@ app.post('/ban-user', limiter, validateOrigin, async (req, res) => {
     });
 
     await newModeration.save();
-
     
+    const logId = await getNextLogId();
+    const logEntry = new Log({
+      id: logId,
+      moderator,
+      actionType: 'BAN',
+      reason,
+      details: `Duration: ${duration}, Evidence: ${evidence || 'N/A'}`,
+    });
+
+    await logEntry.save();
+
     await sendDM(user_id, 'banned', `Reason: ${reason}, Duration: ${duration}`);
     const guildId = process.env.GUILD_ID;
 
@@ -2177,6 +2392,49 @@ app.post('/ban-user', limiter, validateOrigin, async (req, res) => {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
+
+
+
+app.post('/discord-unban-user', limiter, validateOrigin, async (req, res) => {
+  const { user_id, moderator } = req.body;
+
+  if (!user_id || !moderator) {
+    return res.status(400).json({ error: 'user_id and moderator are required' });
+  }
+
+  try {
+    const guildId = process.env.GUILD_ID;
+
+    await axios.delete(
+      `https://discord.com/api/v10/guilds/${guildId}/bans/${user_id}`,
+      {
+        headers: {
+          Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+        },
+      }
+    );
+
+    await Moderation.updateMany({ user_id, type: 'BAN' }, { $set: { status: 'unbanned' } });
+
+    const logId = await getNextLogId();
+    const logEntry = new Log({
+      id: logId,
+      moderator,
+      actionType: 'UNBAN',
+      reason: 'User unbanned by moderator',
+      details: `User ID: ${user_id}`,
+    });
+
+    await logEntry.save();
+
+    res.status(200).json({ message: 'User has been unbanned successfully' });
+  } catch (error) {
+    console.error('Error unbanning user:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+
 
 
 app.get('/user-history/:userId', limiter, validateOrigin, async (req, res) => {

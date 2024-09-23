@@ -14,7 +14,7 @@ import Logs from './Logs';
 import Moderator from './Moderator';
 import Settings from './Settings';
 import Community from './Community';
-import Support from './Support';
+import SelfService from './SelfService';
 import ShopSetup from './ShopSetup';
 import DiscordSetup from './DiscordSetup';
 import UserManagement from './UserManagement';
@@ -23,6 +23,7 @@ import Recruitment from './Recruitment';
 import PositionInfo from './PositionInfo';
 import RecruitmentAdmin from './RecruitmentAdmin';
 import Forbidden from './Forbidden';
+import AnnouncementSetup from './AnnouncementSetup';
 
 function App() {
   return (
@@ -42,7 +43,7 @@ function App() {
         <Route path="/moderator" element={<Moderator />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/community" element={<Community />} />
-        <Route path="/support" element={<Support />} />
+        <Route path="/self_services" element={<SelfService />} />
         <Route path="/shop_setup" element={<ShopSetup />} />
         <Route path="/discord_setup" element={<DiscordSetup />} />
         <Route path="/user_management" element={<UserManagement />} />
@@ -51,6 +52,7 @@ function App() {
         <Route path="/position_info" element={<PositionInfo />} />
         <Route path="/recruitment_admin" element={<RecruitmentAdmin />} />
         <Route path="/forbidden" element={<Forbidden />} />
+        <Route path="/announcement_setup" element={<AnnouncementSetup />} />
       </Routes>
     </Router>
   );

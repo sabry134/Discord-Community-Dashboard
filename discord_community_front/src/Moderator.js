@@ -101,25 +101,29 @@ const Moderator = () => {
 
   const handleUnmute = async () => {
     try {
-      await axios.post("http://localhost:8081/unmute-user", {
+      const response = await axios.post("http://localhost:8081/unmute-user", {
         user_id: userId,
+        moderator: user.username,
       });
       setIsUnmuteDialogOpen(false);
     } catch (error) {
       console.error("Failed to unmute user", error);
     }
   };
-
+  
   const handleUnban = async () => {
     try {
-      await axios.post("http://localhost:8081/unban-user", {
+      await axios.post("http://localhost:8081/discord-unban-user", {
         user_id: userId,
+        moderator: user.username,
       });
       setIsUnbanDialogOpen(false);
     } catch (error) {
       console.error("Failed to unban user", error);
     }
   };
+  
+  
 
   const handleUserIdChange = async (e) => {
     const newUserId = e.target.value;
@@ -186,7 +190,7 @@ const Moderator = () => {
   const handleBanDialogClose = () => setIsBanDialogOpen(false);
 
   const handleWarn = async () => {
-    const moderator = localStorage.getItem("discordID");
+    const moderator = user.username;
     try {
       await axios.post("http://localhost:8081/warn-user", {
         user_id: userId,
@@ -200,7 +204,7 @@ const Moderator = () => {
   };
 
   const handleMute = async () => {
-    const moderator = localStorage.getItem("discordID");
+    const moderator = user.username;
     const duration =
       muteDuration === "custom"
         ? `${customMuteDuration} ${customDurationType}`
@@ -239,7 +243,7 @@ const Moderator = () => {
         ? `${customBanDuration} ${customDurationType}`
         : banDuration;
     try {
-      await axios.post("http://localhost:8081/ban-user", {
+      await axios.post("http://localhost:8081/discord-ban-user", {
         user_id: userId,
         duration,
         reason,
@@ -586,14 +590,14 @@ const Moderator = () => {
                 ? { ...styles.menuItem, backgroundColor: "black" }
                 : styles.menuItem
             }
-            onClick={() => handleMenuItemClick("/support")}
+            onClick={() => handleMenuItemClick("/self_services")}
             onMouseEnter={() => handleMenuItemHover(17)}
             onMouseLeave={handleMenuItemLeave}
           >
             <ContactSupportIcon
               style={{ marginRight: "10px", marginBottom: "-6px" }}
             />{" "}
-            Support
+            Self-Services
           </li>
           <li
             style={

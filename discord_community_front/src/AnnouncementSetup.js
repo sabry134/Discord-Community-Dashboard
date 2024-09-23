@@ -15,13 +15,15 @@ import VideoLibraryIcon from "@mui/icons-material/VideoLibrary";
 import PeopleOutlineIcon from "@mui/icons-material/PeopleOutline";
 import AddTaskIcon from "@mui/icons-material/AddTask";
 import AssignmentIcon from "@mui/icons-material/Assignment";
+import AddIcon from '@mui/icons-material/Add';
 import SmartToyIcon from "@mui/icons-material/SmartToy";
 import GroupIcon from "@mui/icons-material/Group";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import NotificationImportantIcon from "@mui/icons-material/NotificationImportant";
 import ForumIcon from "@mui/icons-material/Forum";
 import ContactSupportIcon from "@mui/icons-material/ContactSupport";
-import AssistantPhotoIcon from '@mui/icons-material/AssistantPhoto';
+import Welcome from "./img/welcome.png";
+import AssistantPhotoIcon from "@mui/icons-material/AssistantPhoto";
 import {
   Table,
   TableBody,
@@ -32,16 +34,11 @@ import {
   IconButton,
   Dialog,
   DialogTitle,
-  Checkbox,
-  FormControlLabel,
   DialogContent,
   DialogActions,
+  Card,
+  CardContent,
   Typography,
-  Select,
-  MenuItem,
-  InputLabel,
-  FormControl,
-  FormGroup,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -49,20 +46,31 @@ import InfoIcon from "@mui/icons-material/Info";
 import { Button, TextField, Snackbar } from "@mui/material";
 import MuiAlert from "@material-ui/lab/Alert";
 
-const Api = () => {
+const AnnouncementSetup = () => {
   const navigate = useNavigate();
+  const [registeredNicknames, setRegisteredNicknames] = useState([]);
+  const [showNicknameModal, setShowNicknameModal] = useState(false);
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [discordID, setDiscordID] = useState("");
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
   const [whitelistedIDs, setWhitelistedIDs] = useState([]);
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchErrorMessage, setSearchErrorMessage] = useState("");
+  const [errorVisible, setErrorVisible] = useState(false);
+  const [newNickname, setNewNickname] = useState("");
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [hoveredItem, setHoveredItem] = useState(null);
-  const [isPrivate, setIsPrivate] = useState(false);
-  const [selectedScopes, setSelectedScopes] = useState([]);
-  const [userId, setUserId] = useState("");
-  const [openBannedUsersDialog, setOpenBannedUsersDialog] = useState(false);
-  const [bannedUsers, setBannedUsers] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
+  const [openDialog, setOpenDialog] = useState(false);
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [image, setImage] = useState('');
+  const [author, setAuthor] = useState('user.username');
   const [menuItemsVisibility, setMenuItemsVisibility] = useState({
     logs: false,
     admin: false,
@@ -71,28 +79,74 @@ const Api = () => {
     bot_management: false,
   });
 
-  const scopesList = [
-    'API Administrator',
-    'API Moderator',
-    'API Documentation access',
-    'API Developer'
-  ];
 
-  const handleCheckboxChange = (event) => {
-    setIsPrivate(event.target.checked);
-  };
 
-  const handleScopeChange = (event) => {
-    const { value, checked } = event.target;
-    setSelectedScopes((prev) =>
-      checked ? [...prev, value] : prev.filter((scope) => scope !== value)
-    );
+  const fetchAnnouncements = async () => {
+    const response = await axios.get('http://localhost:8081/view-announcement');
+    setAnnouncements(response.data);
   };
-
-  const handleSubmit = () => {
-    console.log('API Privacy:', isPrivate);
-    console.log('Selected Scopes:', selectedScopes);
+  
+  useEffect(() => {
+    fetchAnnouncements();
+  }, []);
+  
+  const handleOpenDialog = (announcement = null) => {
+    setSelectedAnnouncement(announcement);
+  
+    if (announcement) {
+      setTitle(announcement.title);
+      setContent(announcement.content || '');
+      setImage(announcement.image || '');
+    } else {
+      setTitle('');
+      setContent('');
+      setImage('');
+    }
+  
+    setOpenDialog(true);
   };
+  
+  const handleSave = async () => {
+    if (!title) {
+      alert('Title is required');
+      return;
+    }
+  
+    if (!content && !image) {
+      alert('Either content or image must be provided');
+      return;
+    }
+  
+    const announcementData = {
+      title,
+      content,
+      image,
+      author: user.username,
+    };
+  
+    try {
+      if (selectedAnnouncement) {
+        await axios.put(`http://localhost:8081/edit-announcement/${selectedAnnouncement._id}`, announcementData);
+      } else {
+        await axios.post('http://localhost:8081/new-announcement', announcementData);
+      }
+  
+      fetchAnnouncements();
+      setOpenDialog(false);
+    } catch (error) {
+      console.error('Failed to save announcement:', error);
+    }
+  };
+  
+  const handleDelete = async (id) => {
+    try {
+      await axios.delete(`http://localhost:8081/delete-announcement/${id}`);
+      fetchAnnouncements();
+    } catch (error) {
+      console.error('Failed to delete announcement:', error);
+    }
+  };
+  
 
   const checkAdminPermissions = async () => {
     if (!isAdmin) {
@@ -129,6 +183,39 @@ const Api = () => {
 
   const handleSnackbarClose = () => {
     setSnackbarOpen(false);
+  };
+
+  const handleSearch = async () => {
+    if (!isAdmin) {
+      alert("User does not have admin permissions to save nickname.");
+      return;
+    }
+    if (!checkAdminPermissions()) return;
+    try {
+      const response = await axios.get(
+        `http://localhost:8081/tasks/${searchQuery.toLowerCase()}`
+      );
+      setSearchResults(response.data.tasks || []);
+
+      if (!response.data.tasks || response.data.tasks.length === 0) {
+        setSearchErrorMessage("Tasks of this user are empty.");
+        setErrorVisible(true);
+
+        setTimeout(() => {
+          setErrorVisible(false);
+        }, 3000);
+      } else {
+        setSearchErrorMessage("");
+      }
+    } catch (error) {
+      console.error("Error fetching search results:");
+      setSearchErrorMessage("Error fetching results. Please try again.");
+      clearSearchResults();
+    }
+  };
+
+  const handleRedirectToChannels = () => {
+    navigate("/channel_groups");
   };
 
   const handleWhitelistedIDs = async () => {
@@ -168,6 +255,24 @@ const Api = () => {
     }
   };
 
+  const handleRedirectToShop = () => {
+    navigate("/shop_setup");
+  };
+
+  const handleRedirectToUsers = () => {
+    navigate("/dashboard_roles");
+  };
+
+  const clearSearchResults = () => {
+    setSearchResults([]);
+    setSearchErrorMessage("");
+    setSearchQuery("");
+  };
+
+  const handleRedirectToDiscord = () => {
+    navigate("/discord_setup");
+  };
+
   useEffect(() => {
     const fetchUser = async () => {
       try {
@@ -195,6 +300,10 @@ const Api = () => {
     validateToken(localStorage.getItem("token"));
   }, []);
 
+  const handleRedirectToAnnouncement = () => {
+    navigate("/announcement_setup");
+  };
+
   const handleGetDiscordID = async () => {
     try {
       const storedToken = localStorage.getItem("token").trim();
@@ -216,6 +325,14 @@ const Api = () => {
       navigate("/forbidden");
       localStorage.removeItem("token");
     }
+  };
+
+  const handleRedirectToStarter = () => {
+    navigate("/starter");
+  };
+
+  const handleRedirectToAPI = () => {
+    navigate("/api");
   };
 
   useEffect(() => {
@@ -264,7 +381,7 @@ const Api = () => {
         }
 
         if (permissions.admin === false) {
-                    navigate("/dashboard");
+          navigate("/dashboard");
         }
 
         setMenuItemsVisibility(permissions);
@@ -339,6 +456,10 @@ const Api = () => {
 
   const handleMenuItemLeave = () => {
     setHoveredItem(null);
+  };
+
+  const handleRedirectToEvents = () => {
+    navigate("/community_events");
   };
 
   if (loading) {
@@ -435,10 +556,12 @@ const Api = () => {
                 ? { ...styles.menuItem, backgroundColor: "black" }
                 : styles.menuItem
             }
-            onClick={() => handleMenuItemClick("/recruitment")}            onMouseEnter={() => handleMenuItemHover(18)}
+            onClick={() => handleMenuItemClick("/recruitment")}
+            onMouseEnter={() => handleMenuItemHover(18)}
             onMouseLeave={handleMenuItemLeave}
           >
-            <AssistantPhotoIcon              style={{ marginRight: "10px", marginBottom: "-6px" }}
+            <AssistantPhotoIcon
+              style={{ marginRight: "10px", marginBottom: "-6px" }}
             />{" "}
             Recruitment
           </li>
@@ -577,44 +700,87 @@ const Api = () => {
         </ul>
       </div>
       <div style={styles.whiteContainer}>
-      <Typography variant="h5" style={styles.marginTop}>API Settings</Typography>
-      <br></br>
+  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+    <Typography variant="h4">Announcements</Typography>
+    <IconButton onClick={() => handleOpenDialog()} color="primary">
+      <AddIcon />
+    </IconButton>
+  </div>
+  {announcements.length > 0 ? (
+    announcements.map((announcement) => (
+      <Card key={announcement._id} style={{ marginBottom: '20px' }}>
+        <CardContent>
+          <Typography variant="h6">{announcement.title}</Typography>
+          {announcement.content && (
+            <Typography style={{ marginTop: '10px', marginBottom: '10px' }}>
+              {announcement.content}
+            </Typography>
+          )}
+          {announcement.image && (
+            <img
+              src={announcement.image}
+              alt={announcement.title}
+              width="100%"
+              style={{ marginTop: '10px', marginBottom: '10px' }}
+            />
+          )}
+          <Typography variant="caption" style={{ marginTop: '10px', display: 'block' }}>
+            By {announcement.author} - {new Date(announcement.createdAt).toLocaleDateString()}
+          </Typography>
+          <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'space-between' }}>
+            <Button onClick={() => handleOpenDialog(announcement)} color="primary">
+              Edit
+            </Button>
+            <Button onClick={() => handleDelete(announcement._id)} color="secondary">
+              Delete
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    ))
+  ) : (
+    <Typography>No announcements available</Typography>
+  )}
 
-      <Typography variant="h6" style={styles.marginTop}>API Privacy</Typography>
-      <br></br>
-      <FormControlLabel
-        control={
-          <Checkbox
-            checked={isPrivate}
-            onChange={handleCheckboxChange}
-            name="privateApi"
-          />
-        }
-        label="Private API"
+  {/* Dialog for creating or editing announcements */}
+  <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
+    <DialogTitle>{selectedAnnouncement ? 'Edit Announcement' : 'New Announcement'}</DialogTitle>
+    <DialogContent>
+      <TextField
+        label="Title"
+        fullWidth
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        required
+        style={{ marginBottom: '20px' }}
       />
-      <br></br>
-      <br></br>
-      <Typography variant="h6" style={styles.marginTop}>API Scopes</Typography>
-      <br></br>
-      <FormGroup style={styles.marginTop}>
-        {scopesList.map((scope) => (
-          <FormControlLabel
-            key={scope}
-            control={
-              <Checkbox
-                checked={selectedScopes.includes(scope)}
-                onChange={handleScopeChange}
-                value={scope}
-              />
-            }
-            label={scope}
-          />
-        ))}
-      </FormGroup>
-      <Button variant="contained" color="primary" onClick={handleSubmit} style={styles.marginTop}>
-        Submit
+      <TextField
+        label="Content"
+        fullWidth
+        multiline
+        rows={4}
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+        style={{ marginBottom: '20px' }}
+      />
+      <TextField
+        label="Image URL"
+        fullWidth
+        value={image}
+        onChange={(e) => setImage(e.target.value)}
+        style={{ marginBottom: '20px' }}
+      />
+    </DialogContent>
+    <DialogActions>
+      <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
+      <Button onClick={handleSave} color="primary">
+        {selectedAnnouncement ? 'Update' : 'Create'}
       </Button>
-    </div>
+    </DialogActions>
+  </Dialog>
+</div>
+
+
       <Snackbar
         open={snackbarOpen}
         autoHideDuration={6000}
@@ -801,4 +967,4 @@ const styles = {
   },
 };
 
-export default Api;
+export default AnnouncementSetup;

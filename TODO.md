@@ -87,12 +87,6 @@ Recruitment
 Users can play music in a VC using the dashboard
 
 
-Settings
-
-ROLE_NOTIFICATION_PREFERENCE
-CRON MANAGEMENT -> AREA
-AVATAR
-NAME
 
 
 Community
@@ -119,6 +113,48 @@ BOT_STARTER -> Start/stop a bot
 
 
 
+API SETUP
+
+Announcement page
+Settings page
+
+Support page
+
+Kubernetes support
+Docker support
+
+RELEASE
 
 
-GUILDS LIST and allow the bot to leave servers (admin only) -> Bot management page -> Guilds button
+
+
+
+Settings
+
+ROLE_NOTIFICATION_PREFERENCE
+CRON MANAGEMENT -> AREA
+NAME & infos
+
+
+Announcements page & setup
+
+SELF_SERVICE
+
+Discord roles, Discord tickets
+
+
+
+
+
+
+
+self service setup
+Self-services
+announcements
+settings
+
+
+Release
+
+
+Trigger docker on windows

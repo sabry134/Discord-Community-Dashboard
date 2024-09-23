@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  front:
+    build:
+      context: ./discord_community_front
+      dockerfile: Dockerfile
+    ports:
+      - "8080:3000"
+    environment:
+      - NODE_ENV=development
+    networks:
+      - app-network
+
+  back:
+    build:
+      context: ./discord_community_server
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081"
+    env_file:
+      - ./discord_community_server/.env
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

@@ -15,9 +15,20 @@ import GroupIcon from "@mui/icons-material/Group";
 import SmartToyIcon from "@mui/icons-material/SmartToy";
 import NotificationImportantIcon from "@mui/icons-material/NotificationImportant";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
-import ForumIcon from '@mui/icons-material/Forum';
-import ContactSupportIcon from '@mui/icons-material/ContactSupport';
-import AssistantPhotoIcon from '@mui/icons-material/AssistantPhoto';
+import ForumIcon from "@mui/icons-material/Forum";
+import ContactSupportIcon from "@mui/icons-material/ContactSupport";
+import AssistantPhotoIcon from "@mui/icons-material/AssistantPhoto";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardMedia,
+  Typography,
+  Avatar,
+} from "@mui/material";
+import Snackbar from '@mui/material/Snackbar';
+import Alert from '@mui/material/Alert';
+
 const Community = () => {
   const navigate = useNavigate();
   const [wordCount, setWordCount] = useState(0);
@@ -26,6 +37,16 @@ const Community = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [posts, setPosts] = useState([]);
+  const [postTitle, setPostTitle] = useState("");
+  const [postContent, setPostContent] = useState("");
+  const [postImage, setPostImage] = useState("");
+  const [postAuthor, setPostAuthor] = useState("");
+  const [authorImage, setAuthorImage] = useState("");
+  const [responseMessage, setResponseMessage] = useState("");
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+const [snackbarMessage, setSnackbarMessage] = useState('');
+const [snackbarSeverity, setSnackbarSeverity] = useState('success');
   const [hoveredItem, setHoveredItem] = useState(null);
   const [menuItemsVisibility, setMenuItemsVisibility] = useState({
     dashboard: true,
@@ -39,6 +60,58 @@ const Community = () => {
     admin: false,
     moderator: false,
   });
+
+  const handleSubmit = async () => {
+    try {
+      const response = await axios.post("http://localhost:8081/new-post", {
+        post_title: postTitle,
+        post_content: postContent,
+        post_image: postImage,
+        post_author: user.username,
+        author_image: user.avatar,
+      });
+  
+      setSnackbarMessage(response.data.message);
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+  
+      setPostTitle("");
+      setPostContent("");
+      setPostImage("");
+      fetchPosts();
+    } catch (error) {
+      console.error("Error creating post:", error);
+      setSnackbarMessage("Failed to create post");
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    }
+  };
+  
+  
+  
+
+  const fetchPosts = async () => {
+    try {
+      const response = await axios.get("http://localhost:8081/all-posts");
+      setPosts(response.data);
+    } catch (error) {
+      console.error("Error fetching posts:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchPosts();
+  }, []);
+
+  const deletePost = async (id) => {
+    try {
+      await axios.delete(`http://localhost:8081/delete-post/${id}`);
+      setPosts(posts.filter((post) => post._id !== id));
+      fetchPosts();
+    } catch (error) {
+      console.error("Error deleting post:", error);
+    }
+  };
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -110,7 +183,7 @@ const Community = () => {
         }
 
         if (mergedPermissions.announcements === false) {
-                    navigate("/dashboard");
+          navigate("/dashboard");
         }
       } catch (error) {
         console.error("Error fetching roles and permissions:", error.message);
@@ -338,9 +411,7 @@ const Community = () => {
             onMouseEnter={() => handleMenuItemHover(16)}
             onMouseLeave={handleMenuItemLeave}
           >
-            <ForumIcon
-              style={{ marginRight: "10px", marginBottom: "-6px" }}
-            />{" "}
+            <ForumIcon style={{ marginRight: "10px", marginBottom: "-6px" }} />{" "}
             Community
           </li>
           <li
@@ -349,14 +420,16 @@ const Community = () => {
                 ? { ...styles.menuItem, backgroundColor: "black" }
                 : styles.menuItem
             }
-            onClick={() => handleMenuItemClick("/recruitment")}            onMouseEnter={() => handleMenuItemHover(18)}
+            onClick={() => handleMenuItemClick("/recruitment")}
+            onMouseEnter={() => handleMenuItemHover(18)}
             onMouseLeave={handleMenuItemLeave}
           >
-            <AssistantPhotoIcon              style={{ marginRight: "10px", marginBottom: "-6px" }}
+            <AssistantPhotoIcon
+              style={{ marginRight: "10px", marginBottom: "-6px" }}
             />{" "}
             Recruitment
           </li>
-          
+
           <li
             style={
               hoveredItem === 15
@@ -378,14 +451,14 @@ const Community = () => {
                 ? { ...styles.menuItem, backgroundColor: "black" }
                 : styles.menuItem
             }
-            onClick={() => handleMenuItemClick("/support")}
+            onClick={() => handleMenuItemClick("/self_services")}
             onMouseEnter={() => handleMenuItemHover(17)}
             onMouseLeave={handleMenuItemLeave}
           >
             <ContactSupportIcon
               style={{ marginRight: "10px", marginBottom: "-6px" }}
             />{" "}
-            Support
+            Self-Services
           </li>
           <li
             style={
@@ -403,41 +476,39 @@ const Community = () => {
             Settings
           </li>
           {menuItemsVisibility.bot_management && (
-
-          <li
-            style={
-              hoveredItem === 10
-                ? { ...styles.menuItem, backgroundColor: "black" }
-                : styles.menuItem
-            }
-            onClick={() => handleMenuItemClick("/bot_management")}
-            onMouseEnter={() => handleMenuItemHover(10)}
-            onMouseLeave={handleMenuItemLeave}
-          >
-            <SmartToyIcon
-              style={{ marginRight: "10px", marginBottom: "-6px" }}
-            />{" "}
-            Bot Management
-          </li>
+            <li
+              style={
+                hoveredItem === 10
+                  ? { ...styles.menuItem, backgroundColor: "black" }
+                  : styles.menuItem
+              }
+              onClick={() => handleMenuItemClick("/bot_management")}
+              onMouseEnter={() => handleMenuItemHover(10)}
+              onMouseLeave={handleMenuItemLeave}
+            >
+              <SmartToyIcon
+                style={{ marginRight: "10px", marginBottom: "-6px" }}
+              />{" "}
+              Bot Management
+            </li>
           )}
           {menuItemsVisibility.community_events && (
-          <li
-            style={
-              hoveredItem === 11
-                ? { ...styles.menuItem, backgroundColor: "black" }
-                : styles.menuItem
-            }
-            onClick={() => handleMenuItemClick("/community_events")}
-            onMouseEnter={() => handleMenuItemHover(11)}
-            onMouseLeave={handleMenuItemLeave}
-          >
-            <SportsScoreIcon
-              style={{ marginRight: "10px", marginBottom: "-6px" }}
-            />{" "}
-            Community Events
-          </li>
+            <li
+              style={
+                hoveredItem === 11
+                  ? { ...styles.menuItem, backgroundColor: "black" }
+                  : styles.menuItem
+              }
+              onClick={() => handleMenuItemClick("/community_events")}
+              onMouseEnter={() => handleMenuItemHover(11)}
+              onMouseLeave={handleMenuItemLeave}
+            >
+              <SportsScoreIcon
+                style={{ marginRight: "10px", marginBottom: "-6px" }}
+              />{" "}
+              Community Events
+            </li>
           )}
-
 
           {menuItemsVisibility.logs && (
             <li
@@ -492,10 +563,87 @@ const Community = () => {
           )}
         </ul>
       </div>
-        <div style={styles.whiteContainer}>
+      <div style={styles.whiteContainer}>
+        {posts.length > 0 ? (
+          posts.map((post, index) => (
+            <Card key={index} style={{ marginBottom: "20px" }}>
+              <CardHeader
+                avatar={
+                  <Avatar src={post.author_image} alt={post.post_author} />
+                }
+                title={post.post_author}
+                action={
+                  (user?.username === post.post_author || 
+                  menuItemsVisibility.moderator || 
+                  menuItemsVisibility.admin) && (
+                    <Button onClick={() => deletePost(post.post_id)}>
+                      Delete Post
+                    </Button>
+                  )
+                }
+              />
+              {post.post_image && (
+                <CardMedia
+                  component="img"
+                  height="200"
+                  image={post.post_image}
+                  alt="Post image"
+                />
+              )}
+              <CardContent>
+                <Typography variant="h5">{post.post_title}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {post.post_content}
+                </Typography>
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <p>No posts available</p>
+        )}
 
-          
+        <Card>
+          <CardContent>
+            <Typography variant="h6">Create a New Post</Typography>
+            <TextField
+              label="Post Title"
+              value={postTitle}
+              onChange={(e) => setPostTitle(e.target.value)}
+              fullWidth
+              margin="normal"
+            />
+            <TextField
+              label="Post Content"
+              value={postContent}
+              onChange={(e) => setPostContent(e.target.value)}
+              fullWidth
+              margin="normal"
+              multiline
+              rows={4}
+            />
+            <TextField
+              label="Post Image URL"
+              value={postImage}
+              onChange={(e) => setPostImage(e.target.value)}
+              fullWidth
+              margin="normal"
+            />
+            <Button variant="contained" color="primary" onClick={handleSubmit}>
+              Submit Post
+            </Button>
+            {responseMessage && <Typography>{responseMessage}</Typography>}
+          </CardContent>
+        </Card>
       </div>
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
+        onClose={() => setSnackbarOpen(false)}
+      >
+        <Alert onClose={() => setSnackbarOpen(false)} severity={snackbarSeverity} sx={{ width: '100%' }}>
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </div>
   );
 };

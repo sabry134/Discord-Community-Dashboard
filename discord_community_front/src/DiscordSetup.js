@@ -777,14 +777,14 @@ const DiscordSetup = () => {
                 ? { ...styles.menuItem, backgroundColor: "black" }
                 : styles.menuItem
             }
-            onClick={() => handleMenuItemClick("/support")}
+            onClick={() => handleMenuItemClick("/self_services")}
             onMouseEnter={() => handleMenuItemHover(17)}
             onMouseLeave={handleMenuItemLeave}
           >
             <ContactSupportIcon
               style={{ marginRight: "10px", marginBottom: "-6px" }}
             />{" "}
-            Support
+            Self-Services
           </li>
           <li
             style={
@@ -890,7 +890,12 @@ const DiscordSetup = () => {
         </ul>
       </div>
       <div style={styles.whiteContainer}>
-      <h2>Server Settings</h2>
+        <Button variant="contained"
+        color="primary"
+        onClick={handleSubmit}
+        fullWidth
+        style={styles.self}>Self-Services setup</Button>
+      <h3>Server Settings</h3>
 
       <TextField
         label="Discord Client ID"
@@ -1094,8 +1099,8 @@ const styles = {
     boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
     width: "40%",
     margin: "20px auto",
-    marginBottom: "2%",
-    marginTop: "2%",
+    marginBottom: "1%",
+    marginTop: "1%",
   },
   searchBar: {
     display: "flex",
@@ -1189,6 +1194,9 @@ const styles = {
     fontSize: "16px",
     border: "none",
     marginLeft: "5px",
+  },
+  self: {
+    width: "100%",
   },
 };
 

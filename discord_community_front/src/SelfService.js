@@ -15,10 +15,13 @@ import GroupIcon from "@mui/icons-material/Group";
 import SmartToyIcon from "@mui/icons-material/SmartToy";
 import NotificationImportantIcon from "@mui/icons-material/NotificationImportant";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
-import ForumIcon from '@mui/icons-material/Forum';
-import ContactSupportIcon from '@mui/icons-material/ContactSupport';
-import AssistantPhotoIcon from '@mui/icons-material/AssistantPhoto';
-const Support = () => {
+import ForumIcon from "@mui/icons-material/Forum";
+import ContactSupportIcon from "@mui/icons-material/ContactSupport";
+import AssistantPhotoIcon from "@mui/icons-material/AssistantPhoto";
+import Typography from "@mui/material/Typography";
+import Service from "./img/service.png";
+
+const SelfService = () => {
   const navigate = useNavigate();
   const [wordCount, setWordCount] = useState(0);
   const [characterCount, setCharacterCount] = useState(0);
@@ -62,6 +65,10 @@ const Support = () => {
 
     fetchUser();
   }, [navigate]);
+
+  const handleBlockClick = (blockName) => {
+    console.log(`${blockName} clicked`);
+  };
 
   useEffect(() => {
     validateToken(localStorage.getItem("token"));
@@ -110,7 +117,7 @@ const Support = () => {
         }
 
         if (mergedPermissions.announcements === false) {
-                    navigate("/dashboard");
+          navigate("/dashboard");
         }
       } catch (error) {
         console.error("Error fetching roles and permissions:", error.message);
@@ -338,9 +345,7 @@ const Support = () => {
             onMouseEnter={() => handleMenuItemHover(16)}
             onMouseLeave={handleMenuItemLeave}
           >
-            <ForumIcon
-              style={{ marginRight: "10px", marginBottom: "-6px" }}
-            />{" "}
+            <ForumIcon style={{ marginRight: "10px", marginBottom: "-6px" }} />{" "}
             Community
           </li>
           <li
@@ -349,14 +354,16 @@ const Support = () => {
                 ? { ...styles.menuItem, backgroundColor: "black" }
                 : styles.menuItem
             }
-            onClick={() => handleMenuItemClick("/recruitment")}            onMouseEnter={() => handleMenuItemHover(18)}
+            onClick={() => handleMenuItemClick("/recruitment")}
+            onMouseEnter={() => handleMenuItemHover(18)}
             onMouseLeave={handleMenuItemLeave}
           >
-            <AssistantPhotoIcon              style={{ marginRight: "10px", marginBottom: "-6px" }}
+            <AssistantPhotoIcon
+              style={{ marginRight: "10px", marginBottom: "-6px" }}
             />{" "}
             Recruitment
           </li>
-          
+
           <li
             style={
               hoveredItem === 15
@@ -378,14 +385,14 @@ const Support = () => {
                 ? { ...styles.menuItem, backgroundColor: "black" }
                 : styles.menuItem
             }
-            onClick={() => handleMenuItemClick("/support")}
+            onClick={() => handleMenuItemClick("/self_services")}
             onMouseEnter={() => handleMenuItemHover(17)}
             onMouseLeave={handleMenuItemLeave}
           >
             <ContactSupportIcon
               style={{ marginRight: "10px", marginBottom: "-6px" }}
             />{" "}
-            Support
+            Self-Services
           </li>
           <li
             style={
@@ -403,41 +410,39 @@ const Support = () => {
             Settings
           </li>
           {menuItemsVisibility.bot_management && (
-
-          <li
-            style={
-              hoveredItem === 10
-                ? { ...styles.menuItem, backgroundColor: "black" }
-                : styles.menuItem
-            }
-            onClick={() => handleMenuItemClick("/bot_management")}
-            onMouseEnter={() => handleMenuItemHover(10)}
-            onMouseLeave={handleMenuItemLeave}
-          >
-            <SmartToyIcon
-              style={{ marginRight: "10px", marginBottom: "-6px" }}
-            />{" "}
-            Bot Management
-          </li>
+            <li
+              style={
+                hoveredItem === 10
+                  ? { ...styles.menuItem, backgroundColor: "black" }
+                  : styles.menuItem
+              }
+              onClick={() => handleMenuItemClick("/bot_management")}
+              onMouseEnter={() => handleMenuItemHover(10)}
+              onMouseLeave={handleMenuItemLeave}
+            >
+              <SmartToyIcon
+                style={{ marginRight: "10px", marginBottom: "-6px" }}
+              />{" "}
+              Bot Management
+            </li>
           )}
           {menuItemsVisibility.community_events && (
-          <li
-            style={
-              hoveredItem === 11
-                ? { ...styles.menuItem, backgroundColor: "black" }
-                : styles.menuItem
-            }
-            onClick={() => handleMenuItemClick("/community_events")}
-            onMouseEnter={() => handleMenuItemHover(11)}
-            onMouseLeave={handleMenuItemLeave}
-          >
-            <SportsScoreIcon
-              style={{ marginRight: "10px", marginBottom: "-6px" }}
-            />{" "}
-            Community Events
-          </li>
+            <li
+              style={
+                hoveredItem === 11
+                  ? { ...styles.menuItem, backgroundColor: "black" }
+                  : styles.menuItem
+              }
+              onClick={() => handleMenuItemClick("/community_events")}
+              onMouseEnter={() => handleMenuItemHover(11)}
+              onMouseLeave={handleMenuItemLeave}
+            >
+              <SportsScoreIcon
+                style={{ marginRight: "10px", marginBottom: "-6px" }}
+              />{" "}
+              Community Events
+            </li>
           )}
-
 
           {menuItemsVisibility.logs && (
             <li
@@ -492,9 +497,35 @@ const Support = () => {
           )}
         </ul>
       </div>
-        <div style={styles.whiteContainer}>
-
-          
+      <div style={styles.whiteContainer}>
+        <Typography variant="h4" style={{ textAlign: "center" }}>
+          Self-Services
+        </Typography>
+        <br></br>
+        <div style={styles.gridContainer}>
+          <div
+            style={styles.block}
+            onClick={() => handleBlockClick("roleAssignment")}
+          >
+            <img
+              src={Service}
+              alt="Role Assignment"
+              style={styles.blockImage}
+            />
+            <Typography variant="h6">Role Assignment</Typography>
+          </div>
+          <div
+            style={styles.block}
+            onClick={() => handleBlockClick("discordTicket")}
+          >
+            <img src={Service} alt="Discord Ticket" style={styles.blockImage} />
+            <Typography variant="h6">Discord Ticket</Typography>
+          </div>
+          <div style={styles.block} onClick={() => handleBlockClick("LinkedRoles")}>
+            <img src={Service} alt="Linked Roles" style={styles.blockImage} />
+            <Typography variant="h6">Linked Roles</Typography>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -601,6 +632,27 @@ const styles = {
     borderRadius: "10px",
     boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
   },
+  gridContainer: {
+    display: "flex",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  block: {
+    flexBasis: "44%",
+    marginBottom: "20px",
+    padding: "20px",
+    backgroundColor: "#f0f0f0",
+    borderRadius: "8px",
+    textAlign: "center",
+    cursor: "pointer",
+    boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+    transition: "transform 0.2s",
+  },
+  blockImage: {
+    width: "60%",
+    height: "auto",
+    marginBottom: "10px",
+  },
 };
 
-export default Support;
+export default SelfService;

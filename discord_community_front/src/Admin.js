@@ -11,17 +11,19 @@ import SportsScoreIcon from "@mui/icons-material/SportsScore";
 import SettingsIcon from "@mui/icons-material/Settings";
 import LockOpenIcon from "@mui/icons-material/LockOpen";
 import TranslatorFavicon from "./img/icon.png";
-import VideoLibraryIcon from '@mui/icons-material/VideoLibrary';
+import VideoLibraryIcon from "@mui/icons-material/VideoLibrary";
 import PeopleOutlineIcon from "@mui/icons-material/PeopleOutline";
-import AddTaskIcon from '@mui/icons-material/AddTask';
+import AddTaskIcon from "@mui/icons-material/AddTask";
 import AssignmentIcon from "@mui/icons-material/Assignment";
-import SmartToyIcon from '@mui/icons-material/SmartToy';
-import GroupIcon from '@mui/icons-material/Group';
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-import NotificationImportantIcon from '@mui/icons-material/NotificationImportant';
-import ForumIcon from '@mui/icons-material/Forum';
-import ContactSupportIcon from '@mui/icons-material/ContactSupport';
-import AssistantPhotoIcon from '@mui/icons-material/AssistantPhoto';import {
+import SmartToyIcon from "@mui/icons-material/SmartToy";
+import GroupIcon from "@mui/icons-material/Group";
+import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
+import NotificationImportantIcon from "@mui/icons-material/NotificationImportant";
+import ForumIcon from "@mui/icons-material/Forum";
+import ContactSupportIcon from "@mui/icons-material/ContactSupport";
+import Welcome from "./img/welcome.png";
+import AssistantPhotoIcon from "@mui/icons-material/AssistantPhoto";
+import {
   Table,
   TableBody,
   TableCell,
@@ -36,13 +38,9 @@ import AssistantPhotoIcon from '@mui/icons-material/AssistantPhoto';import {
   Typography,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
-import CircularProgress from '@mui/material/CircularProgress';
+import CircularProgress from "@mui/material/CircularProgress";
 import InfoIcon from "@mui/icons-material/Info";
-import {
-  Button,
-  TextField,
-  Snackbar,
-} from "@mui/material";
+import { Button, TextField, Snackbar } from "@mui/material";
 import MuiAlert from "@material-ui/lab/Alert";
 
 const Admin = () => {
@@ -64,12 +62,11 @@ const Admin = () => {
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [hoveredItem, setHoveredItem] = useState(null);
   const [menuItemsVisibility, setMenuItemsVisibility] = useState({
-
     logs: false,
     admin: false,
     moderator: false,
     community_events: false,
-    bot_management: false
+    bot_management: false,
   });
 
   const checkAdminPermissions = async () => {
@@ -94,7 +91,8 @@ const Admin = () => {
 
       if (!whitelist.includes(discordID) || mergedPermissions.admin === false) {
         setIsAdmin(false);
-        navigate("/dashboard");        return false;
+        navigate("/dashboard");
+        return false;
       }
 
       return true;
@@ -186,7 +184,6 @@ const Admin = () => {
     navigate("/dashboard_roles");
   };
 
-
   const clearSearchResults = () => {
     setSearchResults([]);
     setSearchErrorMessage("");
@@ -196,8 +193,6 @@ const Admin = () => {
   const handleRedirectToDiscord = () => {
     navigate("/discord_setup");
   };
-
-
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -226,7 +221,9 @@ const Admin = () => {
     validateToken(localStorage.getItem("token"));
   }, []);
 
-
+  const handleRedirectToAnnouncement = () => {
+    navigate("/announcement_setup");
+  };
 
   const handleGetDiscordID = async () => {
     try {
@@ -251,6 +248,14 @@ const Admin = () => {
     }
   };
 
+  const handleRedirectToStarter = () => {
+    navigate("/starter");
+  };
+
+  const handleRedirectToAPI = () => {
+    navigate("/api");
+  };
+
   useEffect(() => {
     const fetchUserPermissions = async () => {
       const storedToken = localStorage.getItem("token")?.trim();
@@ -265,7 +270,6 @@ const Admin = () => {
 
       const discordID = response.data.discordId;
       if (!discordID) {
-  
         return;
       }
 
@@ -276,14 +280,12 @@ const Admin = () => {
         const userRoles = userRolesResponse.data.roles;
         let mergedPermissions = {};
 
-
         const permissions = {
-
           logs: false,
           admin: false,
           moderator: false,
           community_events: false,
-          bot_management: false
+          bot_management: false,
         };
 
         for (const role of userRoles) {
@@ -300,8 +302,8 @@ const Admin = () => {
         }
 
         if (permissions.admin === false) {
-                        navigate("/dashboard");
-          }
+          navigate("/dashboard");
+        }
 
         setMenuItemsVisibility(permissions);
         setLoading(false);
@@ -325,10 +327,12 @@ const Admin = () => {
 
       setIsAdmin(isAdmin);
       if (isAdmin === false || mergedPermissions.admin === false) {
-        navigate("/dashboard");      }
+        navigate("/dashboard");
+      }
     } catch (error) {
       console.error("Error checking whitelist:");
-      navigate("/dashboard");    }
+      navigate("/dashboard");
+    }
   };
 
   useEffect(() => {
@@ -358,8 +362,6 @@ const Admin = () => {
     }
   };
 
-
-
   const handleLogout = () => {
     localStorage.removeItem("token");
     navigate("/");
@@ -383,7 +385,14 @@ const Admin = () => {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+        }}
+      >
         <CircularProgress />
       </div>
     );
@@ -403,7 +412,7 @@ const Admin = () => {
             </div>
             <div style={styles.userInfo}>
               <p style={styles.userName}>{user.username}</p>
-              
+
               <button
                 onClick={handleLogout}
                 variant="contained"
@@ -417,7 +426,7 @@ const Admin = () => {
         </div>
       )}
 
-<div style={styles.menu}>
+      <div style={styles.menu}>
         <ul style={styles.menuList}>
           <li
             style={
@@ -459,9 +468,7 @@ const Admin = () => {
             onMouseEnter={() => handleMenuItemHover(16)}
             onMouseLeave={handleMenuItemLeave}
           >
-            <ForumIcon
-              style={{ marginRight: "10px", marginBottom: "-6px" }}
-            />{" "}
+            <ForumIcon style={{ marginRight: "10px", marginBottom: "-6px" }} />{" "}
             Community
           </li>
           <li
@@ -470,14 +477,16 @@ const Admin = () => {
                 ? { ...styles.menuItem, backgroundColor: "black" }
                 : styles.menuItem
             }
-            onClick={() => handleMenuItemClick("/recruitment")}            onMouseEnter={() => handleMenuItemHover(18)}
+            onClick={() => handleMenuItemClick("/recruitment")}
+            onMouseEnter={() => handleMenuItemHover(18)}
             onMouseLeave={handleMenuItemLeave}
           >
-            <AssistantPhotoIcon              style={{ marginRight: "10px", marginBottom: "-6px" }}
+            <AssistantPhotoIcon
+              style={{ marginRight: "10px", marginBottom: "-6px" }}
             />{" "}
             Recruitment
           </li>
-          
+
           <li
             style={
               hoveredItem === 15
@@ -499,14 +508,14 @@ const Admin = () => {
                 ? { ...styles.menuItem, backgroundColor: "black" }
                 : styles.menuItem
             }
-            onClick={() => handleMenuItemClick("/support")}
+            onClick={() => handleMenuItemClick("/self_services")}
             onMouseEnter={() => handleMenuItemHover(17)}
             onMouseLeave={handleMenuItemLeave}
           >
             <ContactSupportIcon
               style={{ marginRight: "10px", marginBottom: "-6px" }}
             />{" "}
-            Support
+            Self-Services
           </li>
           <li
             style={
@@ -524,41 +533,39 @@ const Admin = () => {
             Settings
           </li>
           {menuItemsVisibility.bot_management && (
-
-          <li
-            style={
-              hoveredItem === 10
-                ? { ...styles.menuItem, backgroundColor: "black" }
-                : styles.menuItem
-            }
-            onClick={() => handleMenuItemClick("/bot_management")}
-            onMouseEnter={() => handleMenuItemHover(10)}
-            onMouseLeave={handleMenuItemLeave}
-          >
-            <SmartToyIcon
-              style={{ marginRight: "10px", marginBottom: "-6px" }}
-            />{" "}
-            Bot Management
-          </li>
+            <li
+              style={
+                hoveredItem === 10
+                  ? { ...styles.menuItem, backgroundColor: "black" }
+                  : styles.menuItem
+              }
+              onClick={() => handleMenuItemClick("/bot_management")}
+              onMouseEnter={() => handleMenuItemHover(10)}
+              onMouseLeave={handleMenuItemLeave}
+            >
+              <SmartToyIcon
+                style={{ marginRight: "10px", marginBottom: "-6px" }}
+              />{" "}
+              Bot Management
+            </li>
           )}
           {menuItemsVisibility.community_events && (
-          <li
-            style={
-              hoveredItem === 11
-                ? { ...styles.menuItem, backgroundColor: "black" }
-                : styles.menuItem
-            }
-            onClick={() => handleMenuItemClick("/community_events")}
-            onMouseEnter={() => handleMenuItemHover(11)}
-            onMouseLeave={handleMenuItemLeave}
-          >
-            <SportsScoreIcon
-              style={{ marginRight: "10px", marginBottom: "-6px" }}
-            />{" "}
-            Community Events
-          </li>
+            <li
+              style={
+                hoveredItem === 11
+                  ? { ...styles.menuItem, backgroundColor: "black" }
+                  : styles.menuItem
+              }
+              onClick={() => handleMenuItemClick("/community_events")}
+              onMouseEnter={() => handleMenuItemHover(11)}
+              onMouseLeave={handleMenuItemLeave}
+            >
+              <SportsScoreIcon
+                style={{ marginRight: "10px", marginBottom: "-6px" }}
+              />{" "}
+              Community Events
+            </li>
           )}
-
 
           {menuItemsVisibility.logs && (
             <li
@@ -614,66 +621,77 @@ const Admin = () => {
         </ul>
       </div>
       <div style={styles.whiteContainer}>
-      <div style={styles.buttonContainer}>
+
+
+        <div style={styles.buttonContainer}>
+          <Button
+            variant="contained"
+            color="primary"
+            style={styles.button}
+            onClick={handleRedirectToShop}
+          >
+            Shop
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            style={styles.button}
+            onClick={handleRedirectToDiscord}
+          >
+            Discord
+          </Button>
+          <Button variant="contained" color="primary" style={styles.button} onClick={handleRedirectToAnnouncement}>
+            Announcements
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            style={styles.button}
+            onClick={handleRedirectToChannels}
+          >
+            Channel
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            style={styles.button}
+            onClick={handleRedirectToUsers}
+          >
+            Users
+          </Button>
+          <Button variant="contained" color="primary" style={styles.button} onClick={handleRedirectToAPI}>
+            API
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            style={styles.button}
+            onClick={handleRedirectToEvents}
+          >
+            Events
+          </Button>
+        </div>
+
+        <img src={Welcome} alt="Setup" style={{ width: "100%" }} />
+
+        <Typography variant="h4" gutterBottom>
+          Looking to create your community?
+        </Typography>
+        <Typography variant="body1" paragraph>
+          Discover the tools and resources to build and grow your community. Get
+          started by exploring our shop, joining our Discord, or checking out
+          our other channels.
+        </Typography>
         <Button
           variant="contained"
           color="primary"
-          style={styles.button}
-          onClick={handleRedirectToShop}
+          style={{ marginBottom: "20px" }}
+          onCanPlay={handleRedirectToStarter}
         >
-          Shop
-        </Button>
-        <Button
-          variant="contained"
-          color="primary"
-          style={styles.button}
-          onClick={handleRedirectToDiscord}
-        >
-          Discord
-        </Button>
-        <Button
-          variant="contained"
-          color="primary"
-          style={styles.button}
-        >
-          Announcements
-        </Button>
-        <Button
-          variant="contained"
-          color="primary"
-          style={styles.button}
-          onClick={handleRedirectToChannels}
-        >
-          Channel
-        </Button>
-        <Button
-          variant="contained"
-          color="primary"
-          style={styles.button}
-          onClick={handleRedirectToUsers}
-        >
-          Users
-        </Button>
-        <Button
-          variant="contained"
-          color="primary"
-          style={styles.button}
-        >
-          API
-        </Button>
-        <Button
-          variant="contained"
-          color="primary"
-          style={styles.button}
-          onClick={handleRedirectToEvents}
-        >
-          Events
+          Get Started
         </Button>
       </div>
-      <Typography variant="h6" gutterBottom>
-        Additional Content Below
-      </Typography>
-    </div>
+
       <Snackbar
         open={snackbarOpen}
         autoHideDuration={6000}
@@ -784,8 +802,8 @@ const styles = {
     boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
     width: "60%",
     margin: "20px auto",
-    marginBottom: "35%",
-    marginTop: "5%",
+    marginBottom: "auto",
+    marginTop: "2%",
     marginLeft: "10%",
   },
   searchBar: {
@@ -848,15 +866,15 @@ const styles = {
     borderRadius: "4px",
   },
   buttonContainer: {
-    display: 'flex',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: '10px',
-    marginBottom: '20px',
+    display: "flex",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "10px",
+    marginBottom: "20px",
   },
   button: {
-    flex: '1',
+    flex: "1",
   },
 };
 

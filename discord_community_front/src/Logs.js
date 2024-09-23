@@ -76,139 +76,18 @@ const Logs = () => {
   });
 
   useEffect(() => {
-    const fetchAuditLogs = async () => {
+    const fetchLogs = async () => {
       try {
-        const response = await axios.get("http://localhost:8081/audit-logs");
-  
-        const usernameCache = {};
-        const userIdsToFetch = new Set();
-  
-        response.data.audit_log_entries.forEach((log) => {
-          if (!usernameCache[log.user_id] && !userIdsToFetch.has(log.user_id)) {
-            userIdsToFetch.add(log.user_id);
-          }
-        });
-  
-        const fetchUsernames = Array.from(userIdsToFetch).map(async (userId) => {
-          try {
-            const userResponse = await axios.get(`http://localhost:8081/discord-username/${userId}`);
-            const username = userResponse?.data?.username || "Unknown User";
-            usernameCache[userId] = username;
-          } catch (error) {
-            console.error(`Failed to fetch username for user ID ${userId}:`, error);
-            usernameCache[userId] = "Unknown User";
-          }
-        });
-  
-        await Promise.all(fetchUsernames);
-  
-        const logsWithUsernames = response.data.audit_log_entries.map((log) => {
-          return { ...log, username: usernameCache[log.user_id] || "Unknown User" };
-        });
-  
-        setLogs(logsWithUsernames);
-      } catch (err) {
-        setError("Failed to fetch audit logs");
-        console.error(err);
-      } finally {
-        setLoading(false);
+        const response = await axios.get('http://localhost:8081/logs');
+        setLogs(response.data);
+      } catch (error) {
+        console.error('Error fetching logs:', error);
       }
     };
-  
-    fetchAuditLogs();
+
+    fetchLogs();
   }, []);
   
-  
-  
-
-  const formatLogEntry = (log) => {
-    const user = log.username || "Unknown User";
-    const target = log.target_id ? users.find((user) => user.id === log.target_id) : null;
-
-    let actionText = "";
-
-    switch (log.action_type) {
-      case 1:
-        actionText = `${user} enabled the widget.`;
-        break;
-      case 10:
-        actionText = `${user} created a new channel: ${log.target_name}.`;
-        break;
-      case 11:
-        actionText = `${user} updated the channel ${log.target_name}.`;
-        break;
-      case 12:
-        actionText = `${user} deleted the channel ${log.target_name}.`;
-        break;
-      case 20:
-        actionText = `${user} created a new role: ${log.target_name}.`;
-        break;
-      case 21:
-        actionText = `${user} updated the role ${log.target_name} with changes: ${log.changes
-          .map((change) => `${change.key}: ${change.new_value}`)
-          .join(", ")}.`;
-        break;
-      case 22:
-        actionText = `${user} deleted the role ${log.target_name}.`;
-        break;
-      case 23:
-        actionText = `${user} added ${log.changes
-          .map((change) => change.new_value.map((item) => item.name).join(", "))
-          .join(", ")} to role ${log.target_name}.`;
-        break;
-      // case 24:
-      //   actionText = `${user} removed ${log.changes
-      //     .map((change) => change.old_value.map((item) => item.name).join(", "))
-      //     .join(", ")} from role ${log.target_name}.`;
-      //   break;
-      case 25:
-        actionText = `${user} ${log.changes
-          .map((change) => {
-            const action = change.key === "$add" ? "added" : "removed";
-            return `${action} ${change.new_value.map((item) => item.name).join(", ")}`;
-          })
-          .join(", ")}.`;
-        break;
-      case 30:
-        actionText = `${user} updated the role ${target?.username || "Unknown Role"} with changes: ${log.changes
-          .map((change) => `${change.key}: ${change.new_value}`)
-          .join(", ")}.`;
-        break;
-      case 31:
-        actionText = `${user} renamed the role ${target?.username || "Unknown Role"} from "${
-          log.changes.find((change) => change.key === "old_value")?.old_value || "Unknown"
-        }" to "${log.changes.find((change) => change.key === "new_value")?.new_value || "Unknown"}".`;
-        break;
-      case 32:
-        actionText = `${user} updated the guild settings with changes: ${log.changes
-          .map((change) => `${change.key}: ${change.new_value}`)
-          .join(", ")}.`;
-        break;
-      case 40:
-        actionText = `${user} kicked ${target?.username || "Unknown User"} from the server.`;
-        break;
-      case 41:
-        actionText = `${user} banned ${target?.username || "Unknown User"} from the server.`;
-        break;
-      case 42:
-        actionText = `${user} unbanned ${target?.username || "Unknown User"} from the server.`;
-        break;
-      case 43:
-        actionText = `${user} updated the server settings with changes: ${log.changes
-          .map((change) => `${change.key}: ${change.new_value}`)
-          .join(", ")}.`;
-        break;
-      case 44:
-        actionText = `${user} updated a user's permissions with changes: ${log.changes
-          .map((change) => `${change.key}: ${change.new_value}`)
-          .join(", ")}.`;
-        break;
-      default:
-        actionText = `Unknown action type ${log.action_type}.`;
-    }
-
-    return actionText;
-  };
   
 
 
@@ -286,196 +165,6 @@ const Logs = () => {
   };
 
 
-  const clearSearchResults = () => {
-    setSearchResults([]);
-    setSearchErrorMessage("");
-    setSearchQuery("");
-  };
-
-  const handleDelete = async () => {
-    if (!isAdmin) {
-      alert("User does not have admin permissions to save nickname.");
-      return;
-    }
-    if (!checkAdminPermissions()) return;
-    try {
-      const apiUrl = `http://localhost:8081/tasks/${searchQuery.toLowerCase()}`;
-
-      await axios.delete(apiUrl);
-
-      setSearchResults([]);
-    } catch (error) {
-      console.error(`Error deleting tasks:`);
-    }
-  };
-
-  const handleDeleteNickname = (nickname) => {
-    axios
-      .delete(`http://localhost:8081/nickname/${nickname}`)
-      .then((response) => {
-        setSnackbarMessage("Nickname deleted successfully");
-        setSnackbarOpen(true);
-        setRegisteredNicknames(
-          registeredNicknames.filter((n) => n !== nickname)
-        );
-      })
-      .catch((error) => {
-        console.error("Error deleting nickname:");
-      });
-  };
-
-  const handleRegisteredNicknames = async () => {
-    if (!isAdmin) {
-      alert("User does not have admin permissions to save nickname.");
-      return;
-    }
-    if (!checkAdminPermissions()) return;
-    try {
-      const response = await axios.get("http://localhost:8081/nickname");
-      const nicknames = response.data.nicknames || [];
-      setShowNicknameModal(true);
-      setRegisteredNicknames(nicknames.map((nickname) => nickname.nickname));
-    } catch (error) {
-      console.error("Error fetching registered nicknames:");
-    }
-  };
-
-  const handleAddUser = () => {
-    if (!isAdmin) {
-      alert("User does not have admin permissions to save nickname.");
-      return;
-    }
-    if (!checkAdminPermissions()) return;
-    setShowAddUserModal(true);
-  };
-
-  const handleClearNickname = () => {
-    if (!isAdmin) {
-      alert("User does not have admin permissions to save nickname.");
-      return;
-    }
-    if (!checkAdminPermissions()) return;
-    axios
-      .delete("http://localhost:8081/nickname")
-      .then((response) => {
-        setRegisteredNicknames([]);
-      })
-      .catch((error) => {
-        console.error("Error clearing nickname:");
-      });
-  };
-
-  const handleSaveNickname = async () => {
-    try {
-      if (!isAdmin) {
-        alert("User does not have admin permissions to save nickname.");
-        return;
-      }
-      if (!checkAdminPermissions()) return;
-      const response = await axios.post("http://localhost:8081/nickname", {
-        nickname: newNickname,
-      });
-      setRegisteredNicknames((prevNicknames) => [
-        ...prevNicknames,
-        newNickname,
-      ]);
-
-      setNewNickname("");
-    } catch (error) {
-      console.error("Error saving nickname:");
-    }
-  };
-
-  const handleSaveUser = async () => {
-    if (!isAdmin) {
-      alert("User does not have admin permissions to save nickname.");
-      return;
-    }
-    if (!checkAdminPermissions()) return;
-    const isValidDiscordID = /^\d{1,20}$/.test(discordID);
-
-    if (!isValidDiscordID) {
-      alert("Error. Make sure to only enter numbers and up to 20 characters.");
-      return;
-    }
-
-    try {
-      const response = await axios.get("http://localhost:8081/allowed-access");
-      const { whitelist } = response.data;
-
-      if (whitelist.includes(discordID)) {
-        alert("This user is already whitelisted.");
-        return;
-      }
-
-      const data = {
-        id: discordID,
-      };
-
-      await axios.post("http://localhost:8081/allowed-access", data);
-
-      setShowAddUserModal(false);
-      setDiscordID("");
-      window.location.reload();
-    } catch (error) {
-      console.error("Error saving user:");
-    }
-  };
-
-  const handleDeleteUser = async () => {
-    if (!isAdmin) {
-      alert("User does not have admin permissions to save nickname.");
-      return;
-    }
-    if (!checkAdminPermissions()) return;
-    const isValidDiscordID = /^\d{1,20}$/.test(discordID);
-
-    if (!isValidDiscordID) {
-      alert("Error. Make sure to only enter numbers and up to 20 characters.");
-      return;
-    }
-    if (discordID === "495265351270137883") {
-      alert("This user cannot be removed from the whitelist.");
-      return;
-    }
-
-    try {
-      const response = await axios.delete(
-        "http://localhost:8081/allowed-access",
-        {
-          data: { id: discordID },
-        }
-      );
-
-      window.location.reload();
-      if (response.data.message) {
-        setWhitelistedIDs((prevIDs) =>
-          prevIDs.filter((id) => id !== discordID)
-        );
-        alert("User removed from whitelist");
-        setDiscordID("");
-        setShowAddUserModal(false);
-      }
-    } catch (error) {
-      if (error.response && error.response.status === 404) {
-        alert("User isn't whitelisted");
-        setDiscordID("");
-        setShowAddUserModal(false);
-      } else {
-        console.error("Error deleting user:");
-        alert("An error occurred while deleting user");
-        setShowAddUserModal(false);
-      }
-    }
-  };
-
-  const handleUserClose = () => {
-    setShowAddUserModal(false);
-  };
-
-  const handleClose = () => {
-    setShowNicknameModal(false);
-  };
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -770,14 +459,14 @@ const Logs = () => {
                 ? { ...styles.menuItem, backgroundColor: "black" }
                 : styles.menuItem
             }
-            onClick={() => handleMenuItemClick("/support")}
+            onClick={() => handleMenuItemClick("/self_services")}
             onMouseEnter={() => handleMenuItemHover(17)}
             onMouseLeave={handleMenuItemLeave}
           >
             <ContactSupportIcon
               style={{ marginRight: "10px", marginBottom: "-6px" }}
             />{" "}
-            Support
+            Self-Services
           </li>
           <li
             style={
@@ -885,21 +574,35 @@ const Logs = () => {
         </ul>
       </div>
       <div style={styles.whiteContainer}>
-      <Typography variant="h4" gutterBottom>
-        Audit Logs
+      <Typography variant="h6" component="div" gutterBottom>
+        Moderation Logs
       </Typography>
-      {loading && <Typography>Loading...</Typography>}
-      {error && <Typography color="error">{error}</Typography>}
-      {!loading && !error && (
-        <Paper style={styles.logsContainer}>
-          {logs.map((log, index) => (
-            <div key={index} style={styles.logEntry}>
-              <Typography variant="body2">{formatLogEntry(log)}</Typography>
-              <Divider style={styles.divider} />
-            </div>
-          ))}
-        </Paper>
-      )}
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Title</TableCell>
+              <TableCell>Moderator</TableCell>
+              <TableCell>Action Type</TableCell>
+              <TableCell>Reason</TableCell>
+              <TableCell>Details</TableCell>
+              <TableCell>Timestamp</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {logs.map((log, index) => (
+              <TableRow key={index}>
+                <TableCell>{log.title || 'N/A'}</TableCell>
+                <TableCell>{log.moderator}</TableCell>
+                <TableCell>{log.actionType}</TableCell>
+                <TableCell>{log.reason || 'N/A'}</TableCell>
+                <TableCell>{log.details || 'N/A'}</TableCell>
+                <TableCell>{new Date(log.timestamp).toLocaleString()}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
     </div>
 
       <Snackbar
@@ -1120,7 +823,7 @@ const styles = {
     padding: "20px",
     borderRadius: "10px",
     boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
-    width: "40%",
+    width: "50%",
     margin: "20px auto",
     marginBottom: "auto",
     marginTop: "5%",

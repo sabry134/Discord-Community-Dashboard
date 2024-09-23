@@ -189,34 +189,6 @@ const BotManagement = () => {
     setSnackbarOpen(false);
   };
 
-  const handleSearch = async () => {
-    if (!isAdmin) {
-      alert("User does not have admin permissions to save nickname.");
-      return;
-    }
-    if (!checkAdminPermissions()) return;
-    try {
-      const response = await axios.get(
-        `http://localhost:8081/tasks/${searchQuery.toLowerCase()}`
-      );
-      setSearchResults(response.data.tasks || []);
-
-      if (!response.data.tasks || response.data.tasks.length === 0) {
-        setSearchErrorMessage("Tasks of this user are empty.");
-        setErrorVisible(true);
-
-        setTimeout(() => {
-          setErrorVisible(false);
-        }, 3000);
-      } else {
-        setSearchErrorMessage("");
-      }
-    } catch (error) {
-      console.error("Error fetching search results:");
-      setSearchErrorMessage("Error fetching results. Please try again.");
-      clearSearchResults();
-    }
-  };
 
   const handleWhitelistedIDs = async () => {
     try {
@@ -557,14 +529,14 @@ const BotManagement = () => {
                 ? { ...styles.menuItem, backgroundColor: "black" }
                 : styles.menuItem
             }
-            onClick={() => handleMenuItemClick("/support")}
+            onClick={() => handleMenuItemClick("/self_services")}
             onMouseEnter={() => handleMenuItemHover(17)}
             onMouseLeave={handleMenuItemLeave}
           >
             <ContactSupportIcon
               style={{ marginRight: "10px", marginBottom: "-6px" }}
             />{" "}
-            Support
+            Self-Services
           </li>
           <li
             style={

@@ -10,7 +10,7 @@ import LockOpenIcon from "@mui/icons-material/LockOpen";
 import TranslatorFavicon from "./img/icon.png";
 import CircularProgress from "@mui/material/CircularProgress";
 import SportsScoreIcon from "@mui/icons-material/SportsScore";
-import { Button, TextField } from "@mui/material";
+import { Card, Typography, CardContent } from "@mui/material";
 import GroupIcon from "@mui/icons-material/Group";
 import SmartToyIcon from "@mui/icons-material/SmartToy";
 import NotificationImportantIcon from "@mui/icons-material/NotificationImportant";
@@ -26,6 +26,7 @@ const Announcements = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [announcements, setAnnouncements] = useState([]);
   const [hoveredItem, setHoveredItem] = useState(null);
   const [menuItemsVisibility, setMenuItemsVisibility] = useState({
     dashboard: true,
@@ -39,6 +40,19 @@ const Announcements = () => {
     admin: false,
     moderator: false,
   });
+
+  const fetchAnnouncements = async () => {
+    try {
+      const response = await axios.get('http://localhost:8081/view-announcement');
+      setAnnouncements(response.data);
+    } catch (error) {
+      console.error('Error fetching announcements:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchAnnouncements();
+  }, []);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -379,14 +393,14 @@ const Announcements = () => {
                 ? { ...styles.menuItem, backgroundColor: "black" }
                 : styles.menuItem
             }
-            onClick={() => handleMenuItemClick("/support")}
+            onClick={() => handleMenuItemClick("/self_services")}
             onMouseEnter={() => handleMenuItemHover(17)}
             onMouseLeave={handleMenuItemLeave}
           >
             <ContactSupportIcon
               style={{ marginRight: "10px", marginBottom: "-6px" }}
             />{" "}
-            Support
+            Self-Services
           </li>
           <li
             style={
@@ -494,6 +508,46 @@ const Announcements = () => {
         </ul>
       </div>
         <div style={styles.whiteContainer}>
+        <Typography variant="h4" gutterBottom>
+        Announcements
+      </Typography>
+
+      {/* Check if there are announcements */}
+      {announcements.length > 0 ? (
+        announcements.map((announcement) => (
+          <Card key={announcement._id} style={{ marginBottom: '20px' }}>
+            <CardContent>
+              {/* Display the announcement title */}
+              <Typography variant="h6" gutterBottom>
+                {announcement.title}
+              </Typography>
+              
+              {/* Display content if available */}
+              {announcement.content && (
+                <Typography variant="body1" paragraph>
+                  {announcement.content}
+                </Typography>
+              )}
+
+              {/* Display image if available */}
+              {announcement.image && (
+                <img
+                  src={announcement.image}
+                  alt={announcement.title}
+                  style={{ width: '100%', marginBottom: '20px' }}
+                />
+              )}
+
+              {/* Display announcement date */}
+              <Typography variant="caption" color="textSecondary">
+                {new Date(announcement.createdAt).toLocaleDateString('en-US')}
+              </Typography>
+            </CardContent>
+          </Card>
+        ))
+      ) : (
+        <Typography>No announcements available</Typography>
+      )}
 
           
       </div>
