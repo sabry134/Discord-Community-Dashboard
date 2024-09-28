@@ -236,7 +236,7 @@ const PositionInfo = () => {
       if (response.data.valid) {
         setUser(response.data.user);
         localStorage.setItem('username', response.data.user.username);
-        document.title = "Discord Community | Word Counter";
+        document.title = "Discord Community | Position Info";
         const favicon = document.querySelector('link[rel="icon"]');
         favicon.href = TranslatorFavicon;
       } else {
@@ -593,7 +593,6 @@ const PositionInfo = () => {
         <Typography>No available position at the moment</Typography>
       ) : (
         <div>
-          {/* Position name and description */}
           <div style={{ textAlign: 'center', marginBottom: '20px' }}>
             <Typography variant="h4" component="h1">
               {positionDetails.position_name}
@@ -603,7 +602,6 @@ const PositionInfo = () => {
             </Typography>
           </div>
 
-          {/* Questions and TextFields */}
           <Grid container spacing={3}>
             {positionDetails.questions.map((question, index) => (
               <Grid item xs={12} key={index}>

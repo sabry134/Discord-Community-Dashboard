@@ -257,7 +257,7 @@ const Settings = () => {
 
       if (response.data.valid) {
         setUser(response.data.user);
-        document.title = "Discord Community | Word Counter";
+        document.title = "Discord Community | Recruitment";
         const favicon = document.querySelector('link[rel="icon"]');
         favicon.href = TranslatorFavicon;
       } else {

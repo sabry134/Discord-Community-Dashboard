@@ -239,7 +239,7 @@ const Announcements = () => {
 
       if (response.data.valid) {
         setUser(response.data.user);
-        document.title = "Discord Community | Word Counter";
+        document.title = "Discord Community | Announcements";
         const favicon = document.querySelector('link[rel="icon"]');
         favicon.href = TranslatorFavicon;
       } else {
@@ -512,24 +512,20 @@ const Announcements = () => {
         Announcements
       </Typography>
 
-      {/* Check if there are announcements */}
       {announcements.length > 0 ? (
         announcements.map((announcement) => (
           <Card key={announcement._id} style={{ marginBottom: '20px' }}>
             <CardContent>
-              {/* Display the announcement title */}
               <Typography variant="h6" gutterBottom>
                 {announcement.title}
               </Typography>
               
-              {/* Display content if available */}
               {announcement.content && (
                 <Typography variant="body1" paragraph>
                   {announcement.content}
                 </Typography>
               )}
 
-              {/* Display image if available */}
               {announcement.image && (
                 <img
                   src={announcement.image}
@@ -538,7 +534,6 @@ const Announcements = () => {
                 />
               )}
 
-              {/* Display announcement date */}
               <Typography variant="caption" color="textSecondary">
                 {new Date(announcement.createdAt).toLocaleDateString('en-US')}
               </Typography>

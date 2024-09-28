@@ -7,6 +7,7 @@ const rateLimit = require("express-rate-limit");
 require("dotenv").config();
 const querystring = require("querystring");
 app.use(express.json());
+const crypto = require('crypto');
 const { EmbedBuilder } = require('discord.js');
 const cron = require('node-cron');
 const { CronJob } = require('cron');
@@ -34,12 +35,14 @@ const redirectUri = "http://localhost:8081/callback";
 
 
 const corsOptions = {
-  origin: ["http://localhost:8080", "http://localhost:8081"],
+  origin: ["http://localhost:8080", "http://localhost:8081", "http://127.0.0.1:8000"],
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   credentials: true,
   optionsSuccessStatus: 204,
 };
 app.use(cors(corsOptions));
+
+
 
 app.get("/", (req, res) => {
   res.send("Hello, world!");
@@ -397,11 +400,1601 @@ const logSchema = new mongoose.Schema({
 
 const Log = mongoose.model('Log', logSchema);
 
+const tokenSchema = new mongoose.Schema({
+  username: { type: String, required: true, unique: true },
+  token: { type: String, required: true, unique: true },
+  createdAt: { type: Date, default: Date.now }
+});
+
+
+const Token = mongoose.model('Token', tokenSchema);
+
+
+const generateRandomString = (length) => {
+  return crypto.randomBytes(length).toString('hex').slice(0, length);
+};
+
+
+
+
+const verifyToken = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'Authorization token is missing or invalid' });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const tokenRecord = await Token.findOne({ token });
+
+    if (!tokenRecord) {
+      return res.status(403).json({ message: 'Token verification failed' });
+    }
+
+    req.username = tokenRecord.username;
+
+    next();
+  } catch (error) {
+    console.error('Error verifying token:', error);
+    return res.status(500).json({ message: 'Failed to verify token' });
+  }
+};
+
+
+
+
+
+const apiStatusSchema = new mongoose.Schema({
+  isApiEnabled: { type: Boolean, default: true },
+});
+
+const ApiStatus = mongoose.model('ApiStatus', apiStatusSchema);
+
+
+const userProfileSchema = new mongoose.Schema({
+  user_id: { type: String, required: true, unique: true },
+  username: { type: String, default: '' },
+  bio: { type: String, default: '' },
+  web_link: { type: String, default: '' },
+});
+
+const UserProfile = mongoose.model('UserProfile', userProfileSchema);
+
+
+
+
+
+const VALID_SCOPES = [
+  'api.admin',
+  'api.community',
+  'api.position',
+  'api.roleShop',
+  'api.maintain',
+  'api.moderate'
+];
+
+const apiScopesSchema = new mongoose.Schema({
+  scopes: { type: [String], default: [] }
+});
+
+const ApiScopes = mongoose.model('ApiScopes', apiScopesSchema);
+
+const checkAdminScope = async (req, res, next) => {
+  try {
+    const scopes = await ApiScopes.findOne({});
+    if (scopes && scopes.scopes.includes('api.admin')) {
+      next();
+    } else {
+      return res.status(403).json({ message: 'Access denied. Admin scope is required.' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Error checking scopes.' });
+  }
+};
+
+const checkApiScope = (requiredScope) => {
+  return async (req, res, next) => {
+    try {
+      const scopes = await ApiScopes.findOne({});
+      
+      if (!scopes || !scopes.scopes.includes(requiredScope)) {
+        return res.status(403).json({ message: `Access denied. ${requiredScope} scope is required.` });
+      }
+
+      next();
+    } catch (error) {
+      console.error('Error checking API scope:', error);
+      res.status(500).json({ message: 'Failed to check API scope' });
+    }
+  };
+};
+
+
+
+app.use('/users/*', limiter, async (req, res, next) => {
+  try {
+    const status = await ApiStatus.findOne({});
+    if (status && !status.isApiEnabled) {
+      return res.status(403).send('API disabled');
+    }
+    next();
+  } catch (err) {
+    res.status(500).send('Error checking API status');
+  }
+});
+
+app.get('/users/hello', limiter, (req, res) => {
+  res.status(200).send('Hello world');
+});
+
+
+app.post('/users/new-post', limiter, verifyToken, checkApiScope('api.community'), async (req, res) => {
+  const { post_title, post_content, post_image, author_image } = req.body;
+  const post_author = req.username;
+
+  if (!post_title || post_title.trim() === '') {
+    return res.status(400).json({ message: 'Post title is required.' });
+  }
+
+  const hasContent = post_content && post_content.trim() !== '';
+  const hasImage = post_image && post_image.trim() !== '';
+
+  if (!(hasContent || hasImage)) {
+    return res.status(400).json({ message: 'Either post content or post image is required.' });
+  }
+
+  try {
+    const apiStatus = await ApiStatus.findOne({});
+    if (!apiStatus || !apiStatus.isApiEnabled) {
+      return res.status(403).json({ message: 'API is currently disabled' });
+    }
+
+    const post_id = await getNextSequence('post_id');
+
+    const newPost = new Post({
+      post_id,
+      post_title,
+      post_content: hasContent ? post_content : null,
+      post_image: hasImage ? post_image : null,
+      post_author,
+      author_image,
+    });
+
+    await newPost.save();
+    
+    const postResponse = newPost.toObject();
+    delete postResponse._id;
+    delete postResponse.__v;
+
+    res.status(201).json({ message: 'Post created successfully', post: postResponse });
+  } catch (error) {
+    console.error('Error creating post:', error);
+    res.status(500).json({ message: 'Failed to create post.' });
+  }
+});
+
+
+app.get('/users/all-posts', limiter, verifyToken, checkApiScope('api.community'), async (req, res) => {
+  try {
+    const apiStatus = await ApiStatus.findOne({});
+    if (!apiStatus || !apiStatus.isApiEnabled) {
+      return res.status(403).json({ message: 'API is currently disabled' });
+    }
+
+    const posts = await Post.find()
+      .sort({ createdAt: -1 })
+      .select('-__v');
+
+    res.status(200).json(posts);
+  } catch (error) {
+    console.error('Error fetching posts:', error);
+    res.status(500).json({ message: 'Failed to fetch posts' });
+  }
+});
+
+
+app.get('/users/community-rules', limiter, verifyToken, checkApiScope('api.community'), checkAdminScope, async (req, res) => {
+    try {
+      const apiStatus = await ApiStatus.findOne({});
+      if (!apiStatus || !apiStatus.isApiEnabled) {
+        return res.status(403).json({ message: 'API is currently disabled' });
+      }
+
+      const communityRules = await CommunityRules.findOne({}).sort({ createdAt: -1 });
+
+      if (!communityRules) {
+        return res.status(404).json({ message: 'Community rules not found' });
+      }
+
+      res.status(200).json(communityRules);
+    } catch (error) {
+      console.error('Error fetching community rules:', error);
+      res.status(500).json({ message: 'Failed to retrieve community rules' });
+    }
+  }
+);
+
+app.get('/staff-list', limiter, verifyToken, checkApiScope('api.community'), async (req, res) => {
+    try {
+      const apiStatus = await ApiStatus.findOne({});
+      if (!apiStatus || !apiStatus.isApiEnabled) {
+        return res.status(403).json({ message: 'API is currently disabled' });
+      }
+
+      const staffList = await StaffList.findOne().sort({ _id: -1 });
+      if (!staffList) {
+        return res.status(404).json({ message: 'No staff list found' });
+      }
+
+      res.status(200).json(staffList);
+    } catch (error) {
+      console.error('Error fetching staff list:', error);
+      res.status(500).json({ error: 'Failed to fetch staff list' });
+    }
+  }
+);
+
+
+
+
+
+
+app.post('/users/new-announcement', limiter, checkAdminScope, verifyToken, async (req, res) => {
+  const { title, content, image } = req.body;
+  const authorId = req.username;
+
+  if (!title) {
+    return res.status(400).json({ message: 'Title is required' });
+  }
+
+  if (!content && !image) {
+    return res.status(400).json({ message: 'Either content or image must be provided' });
+  }
+
+  try {
+    const apiStatus = await ApiStatus.findOne({});
+    if (!apiStatus || !apiStatus.isApiEnabled) {
+      return res.status(403).json({ message: 'API is currently disabled' });
+    }
+  } catch (error) {
+    console.error('Error fetching API status:', error);
+    return res.status(500).json({ message: 'Failed to check API status' });
+  }
+
+  try {
+    const discordResponse = await axios.get(`https://discord.com/api/v9/users/${authorId}`, {
+      headers: {
+        Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+      },
+    });
+
+    const author = discordResponse.data.username;
+
+    const newAnnouncement = new Announcement({
+      title,
+      content,
+      image,
+      author,
+      createdAt: new Date(),
+    });
+
+    await newAnnouncement.save();
+    res.status(201).json({ message: 'Announcement created successfully', announcement: newAnnouncement });
+  } catch (error) {
+    console.error('Error creating announcement:', error);
+    if (error.response) {
+      return res.status(error.response.status).json({ message: error.response.data.message || 'Failed to fetch Discord username' });
+    }
+    res.status(500).json({ message: 'Failed to create announcement' });
+  }
+});
+
+app.post('/users/staff-list', limiter, checkAdminScope, verifyToken, async (req, res) => {
+  const { content } = req.body;
+
+  try {
+    const apiStatus = await ApiStatus.findOne({});
+    if (!apiStatus || !apiStatus.isApiEnabled) {
+      return res.status(403).json({ message: 'API is currently disabled' });
+    }
+  } catch (error) {
+    console.error('Error fetching API status:', error);
+    return res.status(500).json({ message: 'Failed to check API status' });
+  }
+
+  if (!content) {
+    return res.status(400).json({ error: 'Content is required' });
+  }
+
+  try {
+    const newStaffList = new StaffList({ content });
+    await newStaffList.save();
+    res.status(201).json({ message: 'Staff list updated successfully' });
+  } catch (error) {
+    console.error('Error saving staff list:', error);
+    res.status(500).json({ error: 'Failed to update staff list' });
+  }
+});
+
+app.post('/users/community-rules', limiter, checkAdminScope, verifyToken, async (req, res) => {
+  const { content } = req.body;
+
+  if (!content) {
+    return res.status(400).json({ error: 'Content is required' });
+  }
+
+  try {
+    const newCommunityRules = new CommunityRules({ content });
+    await newCommunityRules.save();
+    res.status(201).json({ message: 'Community rules updated successfully' });
+  } catch (error) {
+    console.error('Error saving community rules:', error);
+    res.status(500).json({ error: 'Failed to update community rules' });
+  }
+});
+
+
+app.get('/users/staff-list', limiter, checkAdminScope, verifyToken, async (req, res) => {
+  try {
+    const apiStatus = await ApiStatus.findOne({});
+    if (!apiStatus || !apiStatus.isApiEnabled) {
+      return res.status(403).json({ message: 'API is currently disabled' });
+    }
+
+    const staffList = await StaffList.findOne({}).sort({ createdAt: -1 });
+
+    if (!staffList) {
+      return res.status(404).json({ message: 'Staff list not found' });
+    }
+
+    res.status(200).json(staffList);
+  } catch (error) {
+    console.error('Error fetching staff list:', error);
+    res.status(500).json({ message: 'Failed to retrieve staff list' });
+  }
+});
+
+
+
+app.get('/users/community-rules', limiter, checkAdminScope, verifyToken, async (req, res) => {
+  try {
+    const apiStatus = await ApiStatus.findOne({});
+    if (!apiStatus || !apiStatus.isApiEnabled) {
+      return res.status(403).json({ message: 'API is currently disabled' });
+    }
+
+    const communityRules = await CommunityRules.findOne({}).sort({ createdAt: -1 });
+
+    if (!communityRules) {
+      return res.status(404).json({ message: 'Community rules not found' });
+    }
+
+    res.status(200).json(communityRules);
+  } catch (error) {
+    console.error('Error fetching community rules:', error);
+    res.status(500).json({ message: 'Failed to retrieve community rules' });
+  }
+});
+
+
+app.post('/users/new-position', limiter, checkApiScope('api.position'), verifyToken, async (req, res) => {
+  const { position_name, questions, discord_channel, position_image, position_description, status } = req.body;
+
+  try {
+    const apiStatus = await ApiStatus.findOne({});
+    if (!apiStatus || !apiStatus.isApiEnabled) {
+      return res.status(403).json({ message: 'API is currently disabled' });
+    }
+  } catch (error) {
+    console.error('Error fetching API status:', error);
+    return res.status(500).json({ message: 'Failed to check API status' });
+  }
+
+  try {
+    const totalPositions = await Position.countDocuments();
+
+    if (totalPositions >= 10) {
+      return res.status(400).json({ message: 'You can only create up to 10 positions' });
+    }
+
+    const position_id = totalPositions + 1;
+
+    const existingPosition = await Position.findOne({ position_name });
+
+    if (existingPosition) {
+      existingPosition.position_name = position_name;
+      existingPosition.questions = questions;
+      existingPosition.discord_channel = discord_channel;
+      existingPosition.position_image = position_image || existingPosition.position_image;
+      existingPosition.position_description = position_description || existingPosition.position_description;
+      existingPosition.status = status || existingPosition.status;
+
+      await existingPosition.save();
+
+      return res.status(200).json({
+        message: 'Position updated successfully',
+        position: {
+          position_id: existingPosition.position_id,
+          position_name: existingPosition.position_name,
+          questions: existingPosition.questions,
+          discord_channel: existingPosition.discord_channel,
+          position_image: existingPosition.position_image,
+          position_description: existingPosition.position_description,
+          status: existingPosition.status
+        }
+      });
+    }
+
+    const newPosition = new Position({
+      position_id,
+      position_name,
+      questions,
+      discord_channel,
+      position_image: position_image || null,
+      position_description: position_description || null,
+      status: status || 'open'
+    });
+
+    await newPosition.save();
+
+    res.status(201).json({
+      message: 'Position created successfully',
+      position: {
+        position_id: newPosition.position_id,
+        position_name: newPosition.position_name,
+        questions: newPosition.questions,
+        discord_channel: newPosition.discord_channel,
+        position_image: newPosition.position_image,
+        position_description: newPosition.position_description,
+        status: newPosition.status
+      }
+    });
+  } catch (error) {
+    console.error('Error creating or updating position:', error);
+    res.status(500).json({ message: 'Failed to create or update position' });
+  }
+});
+
+
+app.delete('/users/delete-position/:position_name', limiter, checkApiScope('api.position'), verifyToken, async (req, res) => {
+  const { position_name } = req.params;
+
+  try {
+    const apiStatus = await ApiStatus.findOne({});
+    if (!apiStatus || !apiStatus.isApiEnabled) {
+      return res.status(403).json({ message: 'API is currently disabled' });
+    }
+
+    const deletedPosition = await Position.findOneAndDelete({ position_name });
+
+    if (!deletedPosition) {
+      return res.status(404).json({ message: 'Position not found' });
+    }
+
+    res.status(200).json({ message: 'Position deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting position:', error);
+    res.status(500).json({ message: 'Failed to delete position' });
+  }
+});
+
+
+app.post("/users/shop-setup", limiter, checkApiScope('api.roleShop'), verifyToken, async (req, res) => {
+  const { role_name, price, role_id } = req.body;
+
+  if (!role_name || !price || !role_id) {
+    return res.status(400).json({ error: "role_name, price, and role_id are required" });
+  }
+
+  try {
+    const apiStatus = await ApiStatus.findOne({});
+    if (!apiStatus || !apiStatus.isApiEnabled) {
+      return res.status(403).json({ message: "API is currently disabled" });
+    }
+
+    const existingRole = await Role.findOne({ role_name });
+    if (existingRole) {
+      return res.status(400).json({ error: "Role name already exists" });
+    }
+
+    const guildRolesUrl = `https://discord.com/api/v10/guilds/${GUILD_ID}/roles`;
+
+    let guildRolesResponse;
+    try {
+      guildRolesResponse = await axios.get(guildRolesUrl, {
+        headers: {
+          Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
+        },
+      });
+    } catch (err) {
+      console.error("Error fetching roles from Discord:", err.response?.data || err.message);
+      return res.status(500).json({ error: "Failed to validate role_id with Discord" });
+    }
+
+    const roleExists = guildRolesResponse.data.some((role) => role.id === role_id);
+    if (!roleExists) {
+      return res.status(400).json({ error: "Invalid role_id. The specified role does not exist in the Discord server." });
+    }
+
+    const newRole = new Role({ role_name, price, role_id });
+    await newRole.save();
+
+    const responseRole = newRole.toObject();
+    delete responseRole._id;
+    delete responseRole.__v;
+
+    res.status(201).json({ message: "Role added successfully", role: responseRole });
+  } catch (error) {
+    console.error("Error adding role:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+
+app.get("/users/points/:userId", limiter, checkApiScope('api.pointsManagement'), verifyToken, async (req, res) => {
+  const { userId } = req.params;
+
+  if (!userId) {
+    return res.status(400).json({ error: "userId is required" });
+  }
+
+  try {
+    const apiStatus = await ApiStatus.findOne({});
+    if (!apiStatus || !apiStatus.isApiEnabled) {
+      return res.status(403).json({ message: 'API is currently disabled' });
+    }
+    let user = await User.findOne({ user_id: userId }, { user_id: 1, points: 1 });
+
+    if (!user) {
+      user = new User({ user_id: userId, points: 0 });
+      await user.save();
+    }
+
+    res.status(200).json({ user_id: user.user_id, points: user.points });
+  } catch (error) {
+    console.error("Error retrieving user points:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+
+app.post("/users/add-points", limiter, checkApiScope('api.pointsManagement'), verifyToken, async (req, res) => {
+  const { user_id, points } = req.body;
+
+  if (!user_id || typeof points !== "number") {
+    return res.status(400).json({ error: "user_id and points are required" });
+  }
+
+  try {
+    const apiStatus = await ApiStatus.findOne({});
+    if (!apiStatus || !apiStatus.isApiEnabled) {
+      return res.status(403).json({ message: 'API is currently disabled' });
+    }
+    const user = await User.findOneAndUpdate(
+      { user_id },
+      { $inc: { points: points } },
+      {
+        new: true,
+        upsert: true,
+        fields: { _id: 0, __v: 0, user_id: 1, points: 1 },
+      }
+    );
+
+    res.status(200).json({ message: "Points added successfully", user });
+  } catch (error) {
+    console.error("Error adding points:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+
+app.post("/users/remove-points", limiter, checkApiScope('api.pointsManagement'), verifyToken, async (req, res) => {
+  const { user_id, points } = req.body;
+
+  if (!user_id || typeof points !== "number") {
+    return res.status(400).json({ error: "user_id and points are required" });
+  }
+
+  try {
+    const apiStatus = await ApiStatus.findOne({});
+    if (!apiStatus || !apiStatus.isApiEnabled) {
+      return res.status(403).json({ message: 'API is currently disabled' });
+    }
+    const user = await User.findOne({ user_id });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    user.points = Math.max(0, user.points - points);
+    await user.save();
+
+    res.status(200).json({
+      message: "Points removed successfully",
+      user_id: user.user_id,
+      points: user.points,
+    });
+  } catch (error) {
+    console.error("Error removing points:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+
+app.delete("/users/shop-setup", limiter, checkApiScope('api.roleShop'), verifyToken, async (req, res) => {
+  const { role_name } = req.body;
+
+  if (!role_name) {
+    return res.status(400).json({ error: "role_name is required" });
+  }
+
+  try {
+    const apiStatus = await ApiStatus.findOne({});
+    if (!apiStatus || !apiStatus.isApiEnabled) {
+      return res.status(403).json({ message: 'API is currently disabled' });
+    }
+    const deletedRole = await Role.findOneAndDelete(
+      { role_name },
+      { _id: 0, __v: 0 }
+    );
+
+    if (deletedRole) {
+      res.status(200).json({ message: "Role deleted successfully", role: deletedRole });
+    } else {
+      res.status(404).json({ error: "Role not found" });
+    }
+  } catch (error) {
+    console.error("Error deleting role:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+
+app.post('/users/buy-role', limiter, checkApiScope('api.roleShop'), verifyToken, async (req, res) => {
+  const { user_id, role_name } = req.body;
+
+  if (!user_id || !role_name) {
+    return res.status(400).json({ error: 'user_id and role_name are required' });
+  }
+
+  try {
+    const apiStatus = await ApiStatus.findOne({});
+    if (!apiStatus || !apiStatus.isApiEnabled) {
+      return res.status(403).json({ message: 'API is currently disabled' });
+    }
+    const allRoles = await Role.find({}, { role_name: 1, _id: 0 });
+
+    const role = await Role.findOne({ role_name });
+    if (!role) {
+      console.error('Role not found in the database:', role_name);
+      return res.status(404).json({ error: 'Role not found' });
+    }
+
+    const user = await User.findOne({ user_id });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.points < role.price) {
+      return res.status(400).json({ error: 'Not enough points to buy this role' });
+    }
+
+    const guildMemberUrl = `https://discord.com/api/v10/guilds/${GUILD_ID}/members/${user_id}`;
+    let memberCheckResponse;
+    try {
+      memberCheckResponse = await axios.get(guildMemberUrl, {
+        headers: {
+          Authorization: `Bot ${DISCORD_BOT_TOKEN}`
+        }
+      });
+    } catch (err) {
+      console.error('Error fetching user roles from Discord:', err.response?.data || err.message);
+      return res.status(500).json({ error: 'Failed to fetch user roles from Discord' });
+    }
+
+    if (memberCheckResponse.status === 200) {
+      const memberRoles = memberCheckResponse.data.roles || [];
+      const userHasRole = memberRoles.includes(role.role_id);
+
+      if (userHasRole) {
+        return res.status(400).json({ error: 'User already has this role on Discord' });
+      }
+
+      user.points -= role.price;
+      user.roles.push(role.role_id);
+      await user.save();
+
+      const roleAssignmentUrl = `https://discord.com/api/v10/guilds/${GUILD_ID}/members/${user_id}/roles/${role.role_id}`;
+      try {
+        await axios.put(roleAssignmentUrl, {}, {
+          headers: {
+            Authorization: `Bot ${DISCORD_BOT_TOKEN}`
+          }
+        });
+      } catch (err) {
+        console.error('Error assigning role on Discord:', err.response?.data || err.message);
+        return res.status(500).json({ error: 'Failed to assign role on Discord' });
+      }
+
+      try {
+        const dmChannelResponse = await axios.post(
+          `https://discord.com/api/v9/users/@me/channels`,
+          { recipient_id: user_id },
+          {
+            headers: {
+              Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        const dmChannelId = dmChannelResponse.data.id;
+
+        await axios.post(
+          `https://discord.com/api/v9/channels/${dmChannelId}/messages`,
+          {
+            embed: {
+              title: 'Purchase successful',
+              description: `Thank you for your purchase! The role "**${role_name}**" has been added!`,
+              color: 0xff0000,
+              footer: { text: new Date().toISOString() }
+            }
+          },
+          {
+            headers: {
+              Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+      } catch (err) {
+        console.error('Error sending DM with embed:', err.response?.data || err.message);
+        return res.status(500).json({ error: 'Failed to send DM with embed' });
+      }
+
+      return res.status(200).json({ message: 'Role purchased and assigned successfully', role: role_name });
+    } else {
+      return res.status(404).json({ error: 'User is not in the server' });
+    }
+  } catch (error) {
+    console.error('Error purchasing role:', error.response?.data || error.message);
+    const statusCode = error.response?.status || 500;
+    const errorMessage = error.response?.data?.message || 'Internal Server Error';
+    return res.status(statusCode).json({ error: errorMessage });
+  }
+});
+
+
+app.get('/users/is-running', limiter, checkApiScope('api.maintain'), verifyToken, async (req, res) => {
+  try {
+    const apiStatus = await ApiStatus.findOne({});
+    if (!apiStatus || !apiStatus.isApiEnabled) {
+      return res.status(403).json({ message: 'API is currently disabled' });
+    }
+
+    if (botClient && botClient.isReady()) {
+      return res.json({ isRunning: true, message: 'Bot is running.' });
+    } else {
+      return res.json({ isRunning: false, message: 'Bot is not running.' });
+    }
+  } catch (error) {
+    console.error('Error checking bot status:', error);
+    return res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+
+app.get('/users/start-bot', limiter, checkApiScope('api.maintain'), verifyToken, async (req, res) => {
+  try {
+    const apiStatus = await ApiStatus.findOne({});
+    if (!apiStatus || !apiStatus.isApiEnabled) {
+      return res.status(403).json({ message: 'API is currently disabled' });
+    }
+
+    if (botClient && botClient.isReady()) {
+      return res.json({ message: 'Bot is already running.' });
+    }
+
+    botClient = new Client({
+      intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+      ],
+    });
+
+    botClient.once('ready', () => {
+      console.log(`Logged in as ${botClient.user.tag}!`);
+      res.json({ message: 'Bot started successfully.' });
+    });
+
+    botClient.on('messageCreate', async (message) => {
+      if (message.author.bot) return;
+
+      const prefix = '!';
+      if (!message.content.startsWith(prefix)) return;
+
+      const args = message.content.slice(prefix.length).trim().split(/ +/);
+      const commandName = args.shift().toLowerCase();
+
+      const disabledCommand = await DisabledCommand.findOne({ commandName });
+      if (disabledCommand) {
+        message.reply('This command is currently disabled.');
+        return;
+      }
+
+      if (customCommands.has(commandName)) {
+        const command = customCommands.get(commandName);
+        try {
+          command.execute(message, args);
+        } catch (error) {
+          console.error(`Error executing command ${commandName}:`, error);
+          message.reply('There was an error executing that command!');
+        }
+      }
+    });
+
+    botClient.on('error', (error) => {
+      console.error('Bot encountered an error:', error);
+    });
+
+    await botClient.login(process.env.DISCORD_BOT_TOKEN);
+  } catch (error) {
+    console.error('Failed to start bot:', error);
+    return res.status(500).json({ error: 'Failed to start bot.' });
+  }
+});
+
+app.get('/users/stop-bot', limiter, checkApiScope('api.maintain'), verifyToken, async (req, res) => {
+  try {
+    const apiStatus = await ApiStatus.findOne({});
+    if (!apiStatus || !apiStatus.isApiEnabled) {
+      return res.status(403).json({ message: 'API is currently disabled' });
+    }
+
+    if (!botClient || !botClient.isReady()) {
+      return res.json({ message: 'Bot is not running.' });
+    }
+
+    botClient.destroy();
+    botClient = null;
+    console.log('Bot stopped.');
+    return res.json({ message: 'Bot stopped successfully.' });
+  } catch (error) {
+    console.error('Failed to stop bot:', error);
+    return res.status(500).json({ error: 'Failed to stop bot.' });
+  }
+});
+
+app.post('/users/disable-command/:commandName', limiter, checkApiScope('api.maintain'), verifyToken, async (req, res) => {
+  try {
+    const apiStatus = await ApiStatus.findOne({});
+    if (!apiStatus || !apiStatus.isApiEnabled) {
+      return res.status(403).json({ message: 'API is currently disabled' });
+    }
+
+    const commandName = req.params.commandName.toLowerCase();
+
+    if (!customCommands.has(commandName)) {
+      return res.status(404).json({ error: 'Command not found' });
+    }
+
+    const existingCommand = await DisabledCommand.findOne({ commandName });
+    if (existingCommand) {
+      return res.json({ message: `Command ${commandName} is already disabled.` });
+    }
+
+    const newDisabledCommand = new DisabledCommand({ commandName });
+    await newDisabledCommand.save();
+
+    res.json({ message: `Command ${commandName} disabled.` });
+  } catch (error) {
+    console.error('Error disabling command:', error);
+    return res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+app.get('/users/disable-command/:commandName', limiter, checkApiScope('api.maintain'), verifyToken, async (req, res) => {
+  try {
+    const apiStatus = await ApiStatus.findOne({});
+    if (!apiStatus || !apiStatus.isApiEnabled) {
+      return res.status(403).json({ message: 'API is currently disabled' });
+    }
+
+    const commandName = req.params.commandName.toLowerCase();
+
+    const existingCommand = await DisabledCommand.findOne({ commandName });
+    if (existingCommand) {
+      return res.json({ message: `Command ${commandName} is already disabled.` });
+    }
+
+    if (!customCommands.has(commandName)) {
+      return res.status(404).json({ error: 'Command not found' });
+    }
+
+    const newDisabledCommand = new DisabledCommand({ commandName });
+    await newDisabledCommand.save();
+
+    res.json({ message: `Command ${commandName} disabled.` });
+  } catch (error) {
+    console.error('Error disabling command:', error);
+    return res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+app.post('/users/enable-command/:commandName', limiter, checkApiScope('api.maintain'), verifyToken, async (req, res) => {
+  try {
+    const apiStatus = await ApiStatus.findOne({});
+    if (!apiStatus || !apiStatus.isApiEnabled) {
+      return res.status(403).json({ message: 'API is currently disabled' });
+    }
+
+    const commandName = req.params.commandName.toLowerCase();
+
+    if (!customCommands.has(commandName)) {
+      return res.status(404).json({ error: 'Command not found' });
+    }
+
+    const disabledCommand = await DisabledCommand.findOne({ commandName });
+    if (!disabledCommand) {
+      return res.json({ message: `Command ${commandName} is already enabled.` });
+    }
+
+    await DisabledCommand.deleteOne({ commandName });
+
+    res.json({ message: `Command ${commandName} enabled.` });
+  } catch (error) {
+    console.error('Error enabling command:', error);
+    return res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+app.get('/users/enable-command/:commandName', limiter, checkApiScope('api.maintain'), verifyToken, async (req, res) => {
+  try {
+    const apiStatus = await ApiStatus.findOne({});
+    if (!apiStatus || !apiStatus.isApiEnabled) {
+      return res.status(403).json({ message: 'API is currently disabled' });
+    }
+
+    const commandName = req.params.commandName.toLowerCase();
+
+    if (!customCommands.has(commandName)) {
+      return res.status(404).json({ error: 'Command not found' });
+    }
+
+    const disabledCommand = await DisabledCommand.findOne({ commandName });
+    if (!disabledCommand) {
+      return res.json({ message: `Command ${commandName} is already enabled.` });
+    }
+
+    await DisabledCommand.deleteOne({ commandName });
+
+    res.json({ message: `Command ${commandName} enabled.` });
+  } catch (error) {
+    console.error('Error enabling command:', error);
+    return res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+app.get('/users/logs', checkApiScope('api.maintain'), limiter, async (req, res) => {
+  try {
+    const apiStatus = await ApiStatus.findOne({});
+    if (!apiStatus || !apiStatus.isApiEnabled) {
+      return res.status(403).json({ message: 'API is currently disabled' });
+    }
+
+    const logs = await Log.find().sort({ timestamp: -1 });
+    const formattedLogs = logs.map(log => ({
+      title: `Log #${log.id}`,
+      moderator: log.moderator,
+      actionType: log.actionType,
+      reason: log.reason || 'N/A',
+      details: log.details || 'N/A',
+      timestamp: log.timestamp,
+    }));
+
+    res.status(200).json(formattedLogs);
+  } catch (error) {
+    console.error('Error fetching logs:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+
+
+app.post('/users/warn-user', limiter, verifyToken, checkApiScope('api.moderate'), async (req, res) => {
+  const { user_id, reason, evidence, moderator } = req.body;
+
+  if (!user_id || !reason || !moderator) {
+    return res.status(400).json({ error: 'user_id, reason, and moderator are required' });
+  }
+
+  try {
+    const apiStatus = await ApiStatus.findOne({});
+    if (!apiStatus || !apiStatus.isApiEnabled) {
+      return res.status(403).json({ message: 'API is currently disabled' });
+    }
+
+    const nextId = await getNextId();
+    if (isNaN(nextId)) {
+      return res.status(500).json({ error: 'Failed to generate next ID' });
+    }
+
+    const newModeration = new Moderation({
+      id: nextId,
+      user_id,
+      type: 'WARN',
+      reason,
+      evidence,
+      moderator,
+    });
+
+    await newModeration.save();
+    
+    const logId = await getNextLogId();
+    if (isNaN(logId)) {
+      return res.status(500).json({ error: 'Failed to generate log ID' });
+    }
+
+    const logEntry = new Log({
+      id: logId,
+      moderator,
+      actionType: 'WARN',
+      reason,
+      details: evidence || null,
+    });
+
+    await logEntry.save();
+
+    await sendDM(user_id, 'warned', reason);
+
+    const response = newModeration.toObject();
+    delete response._id;
+    delete response.__v;
+
+    res.status(201).json({
+      message: 'WARN action recorded successfully',
+      moderation: response,
+    });
+  } catch (error) {
+    console.error('Error recording WARN action:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+app.post('/users/mute-user', limiter, verifyToken, checkApiScope('api.moderate'), async (req, res) => {
+  const { user_id, duration, reason, evidence, moderator } = req.body;
+
+  if (!user_id || !duration || !reason || !moderator) {
+    return res.status(400).json({ error: 'user_id, duration, reason, and moderator are required' });
+  }
+
+  try {
+    const apiStatus = await ApiStatus.findOne({});
+    if (!apiStatus || !apiStatus.isApiEnabled) {
+      return res.status(403).json({ message: 'API is currently disabled' });
+    }
+
+    const nextId = await getNextId();
+
+    const newModeration = new Moderation({
+      id: nextId,
+      user_id,
+      type: 'MUTE',
+      duration,
+      reason,
+      evidence,
+      moderator,
+    });
+
+    await newModeration.save();
+    
+    const logId = await getNextLogId();
+    const logEntry = new Log({
+      id: logId,
+      moderator,
+      actionType: 'MUTE',
+      reason,
+      details: `Duration: ${duration}, Evidence: ${evidence || 'N/A'}`,
+    });
+
+    await logEntry.save();
+
+    await sendDM(user_id, 'muted', `for the following reason: ${reason}. Duration: ${duration}`);
+
+    const setup = await ModerationSetup.findOne();
+    const guildId = process.env.GUILD_ID;
+    if (setup && setup.muted_role) {
+      await axios.patch(
+        `https://discord.com/api/v10/guilds/${guildId}/members/${user_id}`,
+        {
+          roles: [setup.muted_role]
+        },
+        {
+          headers: {
+            Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+            'Content-Type': 'application/json'
+          },
+        }
+      );
+    }
+
+    const response = newModeration.toObject();
+    delete response._id;
+    delete response.__v;
+
+    res.status(201).json({
+      message: 'MUTE action recorded successfully',
+      moderation: response,
+    });
+  } catch (error) {
+    console.error('Error recording MUTE action:', error.response ? error.response.data : error.message);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+app.post('/users/kick-user', limiter, verifyToken, checkApiScope('api.moderate'), async (req, res) => {
+  const { user_id, reason, evidence, moderator } = req.body;
+
+  if (!user_id || !reason || !moderator) {
+    return res.status(400).json({ error: 'user_id, reason, and moderator are required' });
+  }
+
+  try {
+    const apiStatus = await ApiStatus.findOne({});
+    if (!apiStatus || !apiStatus.isApiEnabled) {
+      return res.status(403).json({ message: 'API is currently disabled' });
+    }
+
+    const nextId = await getNextId();
+
+    const newModeration = new Moderation({
+      id: nextId,
+      user_id,
+      type: 'KICK',
+      reason,
+      evidence,
+      moderator,
+    });
+
+    await newModeration.save();
+    
+    const logId = await getNextLogId();
+    const logEntry = new Log({
+      id: logId,
+      moderator,
+      actionType: 'KICK',
+      reason,
+      details: evidence || null,
+    });
+
+    await logEntry.save();
+
+    await sendDM(user_id, 'kicked', reason);
+    const guildId = process.env.GUILD_ID;
+
+    await axios.delete(
+      `https://discord.com/api/v10/guilds/${guildId}/members/${user_id}`,
+      {
+        headers: {
+          Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+        },
+      }
+    );
+
+    const response = newModeration.toObject();
+    delete response._id;
+    delete response.__v;
+
+    res.status(201).json({
+      message: 'KICK action recorded successfully',
+      moderation: response,
+    });
+  } catch (error) {
+    console.error('Error recording KICK action:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+app.post('/users/unmute-user', limiter, verifyToken, checkApiScope('api.moderate'), async (req, res) => {
+  const { user_id, moderator } = req.body;
+
+  if (!user_id || !moderator) {
+    return res.status(400).json({ error: 'user_id and moderator are required' });
+  }
+
+  try {
+    const apiStatus = await ApiStatus.findOne({});
+    if (!apiStatus || !apiStatus.isApiEnabled) {
+      return res.status(403).json({ message: 'API is currently disabled' });
+    }
+
+    const setup = await ModerationSetup.findOne();
+    const guildId = process.env.GUILD_ID;
+
+    if (setup && setup.muted_role) {
+      await axios.delete(
+        `https://discord.com/api/v10/guilds/${guildId}/members/${user_id}/roles/${setup.muted_role}`,
+        {
+          headers: {
+            Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+          },
+        }
+      );
+
+      await Moderation.updateMany({ user_id, type: 'MUTE' }, { $set: { status: 'unmuted' } });
+
+      const logId = await getNextLogId();
+      const logEntry = new Log({
+        id: logId,
+        moderator,
+        actionType: 'UNMUTE',
+        user_id,
+      });
+
+      await logEntry.save();
+
+      res.status(200).json({ message: 'User has been unmuted successfully' });
+    } else {
+      res.status(404).json({ error: 'Muted role not found' });
+    }
+  } catch (error) {
+    console.error('Error unmuting user:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+app.post('/users/discord-ban-user', limiter, verifyToken, checkApiScope('api.moderate'), async (req, res) => {
+  const { user_id, duration, reason, evidence, moderator } = req.body;
+
+  if (!user_id || !duration || !reason || !moderator) {
+    return res.status(400).json({ error: 'user_id, duration, reason, and moderator are required' });
+  }
+
+  try {
+    const apiStatus = await ApiStatus.findOne({});
+    if (!apiStatus || !apiStatus.isApiEnabled) {
+      return res.status(403).json({ message: 'API is currently disabled' });
+    }
+
+    const nextId = await getNextId();
+
+    const newModeration = new Moderation({
+      id: nextId,
+      user_id,
+      type: 'BAN',
+      duration,
+      reason,
+      evidence,
+      moderator,
+    });
+
+    await newModeration.save();
+    
+    const logId = await getNextLogId();
+    const logEntry = new Log({
+      id: logId,
+      moderator,
+      actionType: 'BAN',
+      reason,
+      details: `Duration: ${duration}, Evidence: ${evidence || 'N/A'}`,
+    });
+
+    await logEntry.save();
+
+    await sendDM(user_id, 'banned', `Reason: ${reason}, Duration: ${duration}`);
+    const guildId = process.env.GUILD_ID;
+
+    await axios.put(
+      `https://discord.com/api/v10/guilds/${guildId}/bans/${user_id}`,
+      { delete_message_days: 7, reason: `${reason} (Duration: ${duration})` },
+      {
+        headers: {
+          Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+        },
+      }
+    );
+
+    const response = newModeration.toObject();
+    delete response._id;
+    delete response.__v;
+
+    res.status(201).json({
+      message: 'BAN action recorded successfully',
+      moderation: response,
+    });
+  } catch (error) {
+    console.error('Error recording BAN action:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+app.post('/users/discord-unban-user', limiter, verifyToken, checkApiScope('api.moderate'), async (req, res) => {
+  const { user_id, moderator } = req.body;
+
+  if (!user_id || !moderator) {
+    return res.status(400).json({ error: 'user_id and moderator are required' });
+  }
+
+  try {
+    const apiStatus = await ApiStatus.findOne({});
+    if (!apiStatus || !apiStatus.isApiEnabled) {
+      return res.status(403).json({ message: 'API is currently disabled' });
+    }
+
+    const guildId = process.env.GUILD_ID;
+
+    await axios.delete(
+      `https://discord.com/api/v10/guilds/${guildId}/bans/${user_id}`,
+      {
+        headers: {
+          Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+        },
+      }
+    );
+
+    await Moderation.updateMany({ user_id, type: 'BAN' }, { $set: { status: 'unbanned' } });
+
+    const logId = await getNextLogId();
+    const logEntry = new Log({
+      id: logId,
+      moderator,
+      actionType: 'UNBAN',
+      reason: 'User unbanned by moderator',
+      details: `User ID: ${user_id}`,
+    });
+
+    await logEntry.save();
+
+    res.status(200).json({ message: 'User has been unbanned successfully' });
+  } catch (error) {
+    console.error('Error unbanning user:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+
+
+
+// ------------------------------------------------------------------------DO NOT EDIT BELOW THIS LINE------------------------------------------------------------------------
+
+
+app.get('/generate-token/:username', validateOrigin, limiter, async (req, res) => {
+  const { username } = req.params;
+
+  if (!username) {
+    return res.status(400).json({ message: 'Username is required' });
+  }
+
+  try {
+    let tokenRecord = await Token.findOne({ username });
+
+    if (!tokenRecord) {
+      const token = generateRandomString(50);
+      tokenRecord = new Token({ username, token });
+      await tokenRecord.save();
+    }
+
+    res.json({ token: tokenRecord.token });
+  } catch (error) {
+    console.error('Error generating token:', error);
+    res.status(500).json({ message: 'Failed to generate token' });
+  }
+});
+
+app.get('/check-token/:username', validateOrigin, limiter, async (req, res) => {
+  const { username } = req.params;
+
+  if (!username) {
+    return res.status(400).json({ message: 'Username is required' });
+  }
+
+  try {
+    const tokenRecord = await Token.findOne({ username });
+
+    if (!tokenRecord) {
+      return res.status(200).json({ username, token: '' });
+    }
+
+    res.json({ username: tokenRecord.username, token: tokenRecord.token });
+  } catch (error) {
+    console.error('Error fetching token:', error);
+    res.status(500).json({ message: 'Failed to fetch token' });
+  }
+});
+
+
+app.get('/api-scopes', validateOrigin, limiter, async (req, res) => {
+  try {
+    const scopesData = await ApiScopes.findOne({});
+    if (scopesData) {
+      res.json({ scopes: scopesData.scopes });
+    } else {
+      res.json({ scopes: [] });
+    }
+  } catch (err) {
+    res.status(500).send('Error fetching API scopes');
+  }
+});
+
+app.post('/api-scopes', validateOrigin, limiter, async (req, res) => {
+  const { scopes } = req.body;
+
+  if (Array.isArray(scopes) && scopes.every(scope => VALID_SCOPES.includes(scope))) {
+    try {
+      const updatedScopes = await ApiScopes.findOneAndUpdate(
+        {},
+        { $addToSet: { scopes: { $each: scopes } } },
+        { upsert: true, new: true }
+      );
+      res.json({ scopes: updatedScopes.scopes });
+    } catch (err) {
+      res.status(500).send('Error adding API scopes');
+    }
+  } else {
+    res.status(400).send('Invalid scopes provided');
+  }
+});
+
+app.delete('/api-scopes', validateOrigin, limiter, async (req, res) => {
+  const { scopes } = req.body;
+
+  if (Array.isArray(scopes) && scopes.every(scope => VALID_SCOPES.includes(scope))) {
+    try {
+      const updatedScopes = await ApiScopes.findOneAndUpdate(
+        {},
+        { $pull: { scopes: { $in: scopes } } },
+        { new: true }
+      );
+      res.json({ scopes: updatedScopes ? updatedScopes.scopes : [] });
+    } catch (err) {
+      res.status(500).send('Error removing API scopes');
+    }
+  } else {
+    res.status(400).send('Invalid scopes provided');
+  }
+});
+
+
+app.post('/api-status', validateOrigin, limiter, async (req, res) => {
+  const { isApiEnabled } = req.body;
+
+  if (typeof isApiEnabled === 'boolean') {
+    try {
+      await ApiStatus.updateOne({}, { isApiEnabled }, { upsert: true });
+      res.send(`API ${isApiEnabled ? 'enabled' : 'disabled'}`);
+    } catch (err) {
+      res.status(500).send('Error updating API status');
+    }
+  } else {
+    try {
+      const status = await ApiStatus.findOne({});
+      res.json({
+        isApiEnabled: status ? status.isApiEnabled : false,
+      });
+    } catch (err) {
+      res.status(500).send('Error fetching API status');
+    }
+  }
+});
+
+
+app.get('/api-status', validateOrigin, limiter, async (req, res) => {
+  try {
+    const apiStatus = await ApiStatus.findOne({});
+    if (apiStatus) {
+      res.json({ isApiEnabled: apiStatus.isApiEnabled });
+    } else {
+      res.json({ isApiEnabled: false });
+    }
+  } catch (err) {
+    res.status(500).send('Error fetching API status');
+  }
+});
+
+
+
+
+
+
+
 async function getNextLogId() {
   const lastEntry = await Moderation.findOne({}, {}, { sort: { id: -1 } });
   return lastEntry && lastEntry.id ? lastEntry.id + 1 : 0;
 }
 
+
+app.post('/user-profile', validateOrigin, limiter, async (req, res) => {
+  const { user_id, username, bio, web_link } = req.body;
+
+  try {
+    if (username) {
+      const existingUser = await UserProfile.findOne({ username, user_id: { $ne: user_id } });
+      if (existingUser) {
+        return res.status(400).json({ message: 'Username is already taken.' });
+      }
+    }
+
+    let userProfile = await UserProfile.findOne({ user_id });
+
+    if (userProfile) {
+      userProfile.username = username || userProfile.username;
+      userProfile.bio = bio || userProfile.bio;
+      userProfile.web_link = web_link || userProfile.web_link;
+    } else {
+      userProfile = new UserProfile({
+        user_id,
+        username,
+        bio,
+        web_link
+      });
+    }
+
+    await userProfile.save();
+
+    const { _id, __v, ...profileWithoutMeta } = userProfile.toObject();
+
+    res.status(200).json({
+      message: 'Profile saved successfully',
+      profile: profileWithoutMeta
+    });
+  } catch (error) {
+    console.error('Error saving user profile:', error);
+    res.status(500).json({ message: 'Failed to save profile.' });
+  }
+});
+
+
+
+app.get('/search-member/:username', validateOrigin, limiter, async (req, res) => {
+  const { username } = req.params;
+
+  try {
+    const userProfile = await UserProfile.findOne({ username }, 'user_id bio web_link');
+
+    if (!userProfile) {
+      return res.status(404).json({ message: 'User profile not found' });
+    }
+
+    res.status(200).json({
+      user_id: userProfile.user_id,
+      bio: userProfile.bio,
+      web_link: userProfile.web_link
+    });
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    res.status(500).json({ message: 'Failed to retrieve user profile.' });
+  }
+});
+
+app.get('/user-profile/:user_id', validateOrigin, limiter, async (req, res) => {
+  const { user_id } = req.params;
+
+  try {
+    let userProfile = await UserProfile.findOne({ user_id });
+
+    if (!userProfile) {
+      userProfile = new UserProfile({
+        user_id,
+        username: '',
+        bio: '',
+        web_link: ''
+      });
+
+      await userProfile.save();
+    }
+
+    const { _id, __v, ...profileWithoutMeta } = userProfile.toObject();
+
+    res.status(200).json(profileWithoutMeta);
+  } catch (error) {
+    console.error('Error fetching or creating user profile:', error);
+    res.status(500).json({ message: 'Failed to retrieve or create profile.' });
+  }
+});
 
 
 app.post('/new-announcement', validateOrigin, limiter, async (req, res) => {

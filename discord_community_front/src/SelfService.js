@@ -20,6 +20,8 @@ import ContactSupportIcon from "@mui/icons-material/ContactSupport";
 import AssistantPhotoIcon from "@mui/icons-material/AssistantPhoto";
 import Typography from "@mui/material/Typography";
 import Service from "./img/service.png";
+import Snackbar from "@mui/material/Snackbar";
+import Alert from "@mui/material/Alert";
 
 const SelfService = () => {
   const navigate = useNavigate();
@@ -29,6 +31,8 @@ const SelfService = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
   const [hoveredItem, setHoveredItem] = useState(null);
   const [menuItemsVisibility, setMenuItemsVisibility] = useState({
     dashboard: true,
@@ -68,6 +72,8 @@ const SelfService = () => {
 
   const handleBlockClick = (blockName) => {
     console.log(`${blockName} clicked`);
+    setSnackbarMessage("Feature not available yet");
+    setSnackbarOpen(true);
   };
 
   useEffect(() => {
@@ -148,6 +154,10 @@ const SelfService = () => {
       navigate("/forbidden");
       localStorage.removeItem("token");
     }
+  };
+
+  const handleSnackbarClose = () => {
+    setSnackbarOpen(false);
   };
 
   useEffect(() => {
@@ -232,7 +242,7 @@ const SelfService = () => {
 
       if (response.data.valid) {
         setUser(response.data.user);
-        document.title = "Discord Community | Word Counter";
+        document.title = "Discord Community | Self-Services";
         const favicon = document.querySelector('link[rel="icon"]');
         favicon.href = TranslatorFavicon;
       } else {
@@ -527,6 +537,15 @@ const SelfService = () => {
           </div>
         </div>
       </div>
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={4000}
+        onClose={handleSnackbarClose}
+      >
+        <Alert onClose={handleSnackbarClose} severity="warning" sx={{ width: '100%' }}>
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </div>
   );
 };

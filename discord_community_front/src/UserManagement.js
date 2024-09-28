@@ -647,7 +647,6 @@ const UserManagement = () => {
           View Banned Users
         </Button>
 
-        {/* Banned Users Dialog */}
         <Dialog
   open={openBannedUsersDialog}
   onClose={handleCloseBannedUsersDialog}

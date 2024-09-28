@@ -21,7 +21,7 @@ const Forbidden = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    document.title = "Tank Assembly | Login";
+    document.title = "Discord Community | Login";
     const favicon = document.querySelector('link[rel="icon"]');
     favicon.href = sabryIcon;
 

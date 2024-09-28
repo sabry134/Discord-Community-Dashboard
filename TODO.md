@@ -128,6 +128,45 @@ RELEASE
 
 
 
+Enable/disable API
+
+
+/users/{ENDPOINT}
+
+
+
+
+API Features
+
+
+- Make a post
+- Make an alert
+- Create a position
+- Edit a position
+- New role shop
+- Edit role shop
+- Enable bot
+- Disable bot
+- View logs
+
+
+
+Scopes
+
+
+API.admin -> Make announcement, Set staff list, Set Community rules DONE
+API.moderate -> Warn, ban, mute, unmute, unban
+
+API.community -> Make post, View posts, View staff list, view community rules  DONE
+API.position -> Create position, Edit position, Delete position DONE
+API.roleShop -> New role shop, Edit role shop, Delete role shop, add points, remove points DONE
+API.maintainer -> Enable bot, disable bot, View logs DONE
+
+
+
+Admin -> Enable monthly log clear
+
+
 
 Settings
 
@@ -158,3 +197,7 @@ Release
 
 
 Trigger docker on windows
+
+
+
+Discord bot using public API and scopes

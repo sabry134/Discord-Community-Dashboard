@@ -857,7 +857,6 @@ const CommunityEvents = () => {
           Set
         </Button>
 
-        {/* Event Announcement Dialog */}
         <Dialog open={openDialog} onClose={handleCloseDialog}>
           <DialogTitle>Event Announcement</DialogTitle>
           <DialogContent>

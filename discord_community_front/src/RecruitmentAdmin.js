@@ -713,7 +713,6 @@ const RecruitmentAdmin = () => {
             </Button>
           </div>
 
-          {/* Positions Table */}
           <Table>
             <TableHead>
               <TableRow>
@@ -750,7 +749,6 @@ const RecruitmentAdmin = () => {
             </TableBody>
           </Table>
 
-          {/* Dialog for New/Edit Position */}
           <Dialog
             open={openDialog}
             onClose={handleCloseDialog}
@@ -793,7 +791,6 @@ const RecruitmentAdmin = () => {
                 <MenuItem value="closed">Closed</MenuItem>
               </Select>
 
-              {/* Questions */}
               <Typography variant="h6" style={{ marginTop: "20px" }}>
                 Questions
               </Typography>

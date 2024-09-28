@@ -21,7 +21,8 @@ import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import NotificationImportantIcon from "@mui/icons-material/NotificationImportant";
 import ForumIcon from "@mui/icons-material/Forum";
 import ContactSupportIcon from "@mui/icons-material/ContactSupport";
-import AssistantPhotoIcon from '@mui/icons-material/AssistantPhoto';
+import AssistantPhotoIcon from "@mui/icons-material/AssistantPhoto";
+import Alert from "@mui/material/Alert";
 import {
   Table,
   TableBody,
@@ -58,11 +59,21 @@ const Api = () => {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [hoveredItem, setHoveredItem] = useState(null);
-  const [isPrivate, setIsPrivate] = useState(false);
-  const [selectedScopes, setSelectedScopes] = useState([]);
+  const [isEnabled, setIsEnabled] = useState(false);
   const [userId, setUserId] = useState("");
   const [openBannedUsersDialog, setOpenBannedUsersDialog] = useState(false);
   const [bannedUsers, setBannedUsers] = useState([]);
+  const [snackbarSeverity, setSnackbarSeverity] = useState("success");
+  const [token, setToken] = useState("");
+  const [selectedScopes, setSelectedScopes] = useState([]);
+  const scopesList = [
+    "api.admin",
+    "api.moderate",
+    "api.community",
+    "api.position",
+    "api.roleShop",
+    "api.maintain"
+  ];
   const [menuItemsVisibility, setMenuItemsVisibility] = useState({
     logs: false,
     admin: false,
@@ -71,27 +82,136 @@ const Api = () => {
     bot_management: false,
   });
 
-  const scopesList = [
-    'API Administrator',
-    'API Moderator',
-    'API Documentation access',
-    'API Developer'
-  ];
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        const [scopesResponse, statusResponse] = await Promise.all([
+          axios.get('http://localhost:8081/api-scopes'),
+          axios.get('http://localhost:8081/api-status')
+        ]);
+        setSelectedScopes(scopesResponse.data.scopes);
+        setIsEnabled(statusResponse.data.isApiEnabled);
+      } catch (error) {
+        console.error('Error fetching initial data:', error);
+      }
+    };
+    fetchInitialData();
+  }, []);
 
-  const handleCheckboxChange = (event) => {
-    setIsPrivate(event.target.checked);
+  const handleCheckboxChange = async (event) => {
+    const checked = event.target.checked;
+    setIsEnabled(checked);
+
+    try {
+      await axios.post('http://localhost:8081/api-status', { isApiEnabled: checked });
+      setSnackbarMessage(`API ${checked ? 'enabled' : 'disabled'}`);
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+    } catch (error) {
+      console.error('Error updating API status:', error);
+      setSnackbarMessage('Failed to update API status');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    }
   };
 
-  const handleScopeChange = (event) => {
-    const { value, checked } = event.target;
-    setSelectedScopes((prev) =>
-      checked ? [...prev, value] : prev.filter((scope) => scope !== value)
-    );
+  const handleScopeChange = async (event) => {
+    const { value } = event.target;
+
+    if (selectedScopes.includes(value)) {
+      await removeScope(value);
+    } else {
+      setSelectedScopes((prev) => [...prev, value]);
+    }
   };
 
-  const handleSubmit = () => {
-    console.log('API Privacy:', isPrivate);
-    console.log('Selected Scopes:', selectedScopes);
+  const removeScope = async (scope) => {
+    try {
+      await axios.delete("http://localhost:8081/api-scopes", {
+        data: { scopes: [scope] },
+      });
+      setSelectedScopes((prev) => prev.filter((s) => s !== scope));
+    } catch (error) {
+      console.error("Error removing scope:", error);
+      setSnackbarMessage("Failed to remove scope");
+      setSnackbarOpen(true);
+      setSnackbarSeverity("error");
+    }
+  };
+
+  const handleSubmit = async () => {
+    try {
+      const response = await axios.post("http://localhost:8081/api-scopes", {
+        scopes: selectedScopes,
+      });
+      setSnackbarMessage("Scopes updated successfully");
+      setSnackbarOpen(true);
+      setSnackbarSeverity("success");
+    } catch (error) {
+      console.error("Error updating scopes:", error);
+      setSnackbarMessage("Failed to update scopes");
+      setSnackbarOpen(true);
+      setSnackbarSeverity("error");
+    }
+  };
+
+  useEffect(() => {
+    const fetchToken = async () => {
+      const discordID = localStorage.getItem("discordID");
+
+      try {
+        const response = await axios.get(
+          `http://localhost:8081/check-token/${discordID}`
+        );
+        setToken(response.data.token);
+      } catch (error) {
+        if (error.response) {
+          setSnackbarMessage(
+            error.response.data.message || "Failed to fetch token."
+          );
+          setSnackbarOpen(true);
+          setSnackbarSeverity("error");
+        } else {
+          console.error("Error fetching token:", error);
+          setSnackbarMessage("An error occurred while fetching the token.");
+          setSnackbarOpen(true);
+          setSnackbarSeverity("error");
+        }
+      }
+    };
+
+    fetchToken();
+  }, []);
+
+  const handleCreateToken = async () => {
+    const discordID = localStorage.getItem('discordID');
+
+    try {
+      const response = await axios.get(
+        `http://localhost:8081/generate-token/${discordID}`
+      );
+      const generatedToken = response.data.token;
+      setToken(generatedToken);
+
+      await navigator.clipboard.writeText(generatedToken);
+
+      setSnackbarMessage('Token generated and copied!');
+      setSnackbarOpen(true);
+      setSnackbarSeverity('success');
+    } catch (error) {
+      if (error.response) {
+        setSnackbarMessage(
+          error.response.data.message || 'Failed to generate token.'
+        );
+        setSnackbarOpen(true);
+        setSnackbarSeverity('error');
+      } else {
+        console.error('Error generating token:', error);
+        setSnackbarMessage('An error occurred while generating the token.');
+        setSnackbarOpen(true);
+        setSnackbarSeverity('error');
+      }
+    }
   };
 
   const checkAdminPermissions = async () => {
@@ -264,7 +384,7 @@ const Api = () => {
         }
 
         if (permissions.admin === false) {
-                    navigate("/dashboard");
+          navigate("/dashboard");
         }
 
         setMenuItemsVisibility(permissions);
@@ -435,10 +555,12 @@ const Api = () => {
                 ? { ...styles.menuItem, backgroundColor: "black" }
                 : styles.menuItem
             }
-            onClick={() => handleMenuItemClick("/recruitment")}            onMouseEnter={() => handleMenuItemHover(18)}
+            onClick={() => handleMenuItemClick("/recruitment")}
+            onMouseEnter={() => handleMenuItemHover(18)}
             onMouseLeave={handleMenuItemLeave}
           >
-            <AssistantPhotoIcon              style={{ marginRight: "10px", marginBottom: "-6px" }}
+            <AssistantPhotoIcon
+              style={{ marginRight: "10px", marginBottom: "-6px" }}
             />{" "}
             Recruitment
           </li>
@@ -577,72 +699,88 @@ const Api = () => {
         </ul>
       </div>
       <div style={styles.whiteContainer}>
-      <Typography variant="h5" style={styles.marginTop}>API Settings</Typography>
-      <br></br>
-
-      <Typography variant="h6" style={styles.marginTop}>API Privacy</Typography>
-      <br></br>
-      <FormControlLabel
-        control={
-          <Checkbox
-            checked={isPrivate}
-            onChange={handleCheckboxChange}
-            name="privateApi"
-          />
-        }
-        label="Private API"
-      />
-      <br></br>
-      <br></br>
-      <Typography variant="h6" style={styles.marginTop}>API Scopes</Typography>
-      <br></br>
-      <FormGroup style={styles.marginTop}>
-        {scopesList.map((scope) => (
-          <FormControlLabel
-            key={scope}
-            control={
-              <Checkbox
-                checked={selectedScopes.includes(scope)}
-                onChange={handleScopeChange}
-                value={scope}
-              />
-            }
-            label={scope}
-          />
-        ))}
-      </FormGroup>
-      <Button variant="contained" color="primary" onClick={handleSubmit} style={styles.marginTop}>
-        Submit
-      </Button>
-    </div>
+        <Typography variant="h5" style={styles.marginTop}>
+          API Settings
+        </Typography>
+        <br />
+        <Typography variant="h6" style={styles.marginTop}>
+          API Privacy
+        </Typography>
+        <br />
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={isEnabled}
+              onChange={handleCheckboxChange}
+              name="enableAPI"
+            />
+          }
+          label="Enable API"
+        />
+        <br />
+        <br />
+        <Typography variant="h6" style={styles.marginTop}>
+          API Scopes
+        </Typography>
+        <br />
+        <FormGroup style={styles.marginTop}>
+          {scopesList.map((scope) => (
+            <FormControlLabel
+              key={scope}
+              control={
+                <Checkbox
+                  checked={selectedScopes.includes(scope)}
+                  onChange={handleScopeChange}
+                  value={scope}
+                />
+              }
+              label={scope}
+            />
+          ))}
+        </FormGroup>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={handleSubmit}
+          style={styles.marginTop}
+        >
+          Submit
+        </Button>
+        <br />
+        <Typography variant="h6" style={styles.marginTop}>
+          Generated Token
+        </Typography>
+        <TextField
+          value={token}
+          variant="outlined"
+          type="password"
+          fullWidth
+          InputProps={{
+            readOnly: true,
+          }}
+          style={styles.marginTop}
+        />
+        <Button
+          variant="contained"
+          color="secondary"
+          onClick={handleCreateToken}
+          style={styles.marginTop}
+        >
+          Generate Token
+        </Button>
+      </div>
       <Snackbar
         open={snackbarOpen}
         autoHideDuration={6000}
-        onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        onClose={() => setSnackbarOpen(false)}
       >
-        <MuiAlert
-          elevation={6}
-          variant="filled"
-          onClose={handleSnackbarClose}
-          severity={
-            snackbarMessage.includes(
-              "You can only submit one bug report per week."
-            ) ||
-            snackbarMessage.includes(
-              "You can only submit one bug report per day."
-            ) ||
-            snackbarMessage.includes("Please fill out all fields") ||
-            snackbarMessage.includes(
-              "An error occurred while creating the issue"
-            ) ||
-            snackbarMessage.includes("Please enter a valid YouTube link")
-              ? "error"
-              : "success"
-          }
+        <Alert
+          onClose={() => setSnackbarOpen(false)}
+          severity={snackbarSeverity}
+          sx={{ width: "100%" }}
         >
           {snackbarMessage}
-        </MuiAlert>
+        </Alert>
       </Snackbar>
     </div>
   );
@@ -798,6 +936,9 @@ const styles = {
   },
   button: {
     flex: "1",
+  },
+  marginTop: {
+    marginTop: "16px",
   },
 };
 

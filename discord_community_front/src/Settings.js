@@ -15,18 +15,35 @@ import GroupIcon from "@mui/icons-material/Group";
 import SmartToyIcon from "@mui/icons-material/SmartToy";
 import NotificationImportantIcon from "@mui/icons-material/NotificationImportant";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
-import ForumIcon from '@mui/icons-material/Forum';
-import ContactSupportIcon from '@mui/icons-material/ContactSupport';
-import AssistantPhotoIcon from '@mui/icons-material/AssistantPhoto';
+import ForumIcon from "@mui/icons-material/Forum";
+import ContactSupportIcon from "@mui/icons-material/ContactSupport";
+import AssistantPhotoIcon from "@mui/icons-material/AssistantPhoto";
+import { Paper, Typography, Avatar, Divider, Box } from "@mui/material";
+import Snackbar from "@mui/material/Snackbar";
+import Alert from "@mui/material/Alert";
+import { Card, CardHeader, CardContent, CardActions } from "@mui/material";
+
 const Settings = () => {
   const navigate = useNavigate();
   const [wordCount, setWordCount] = useState(0);
   const [characterCount, setCharacterCount] = useState(0);
   const [text, setText] = useState("");
   const [user, setUser] = useState(null);
+  const [username, setUsername] = useState("");
+  const [bio, setBio] = useState("");
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
+  const [snackbarSeverity, setSnackbarSeverity] = useState("success");
+  const [website, setWebsite] = useState("");
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState(null);
+  const [errorMessage, setErrorMessage] = useState("");
   const [hoveredItem, setHoveredItem] = useState(null);
+  const [avatar, setAvatar] = useState("");
+
   const [menuItemsVisibility, setMenuItemsVisibility] = useState({
     dashboard: true,
     announcements: true,
@@ -39,6 +56,23 @@ const Settings = () => {
     admin: false,
     moderator: false,
   });
+
+  useEffect(() => {
+    const discordID = localStorage.getItem("discordID");
+    if (discordID) {
+      axios
+        .get(`http://localhost:8081/user-profile/${discordID}`)
+        .then((response) => {
+          const profile = response.data;
+          setUsername(profile.username || "");
+          setBio(profile.bio || "");
+          setWebsite(profile.web_link || "");
+        })
+        .catch((error) => {
+          console.error("Error fetching profile:", error);
+        });
+    }
+  }, []);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -67,12 +101,62 @@ const Settings = () => {
     validateToken(localStorage.getItem("token"));
   }, []);
 
-  const countWordsAndCharacters = () => {
-    const words = text.trim().split(/\s+/).filter(Boolean).length;
-    const characters = text.length;
+  useEffect(() => {
+    const discordAvatar = localStorage.getItem("discordAvatar");
+    setAvatar(discordAvatar);
+  }, []);
 
-    setWordCount(words);
-    setCharacterCount(characters);
+  const handleSaveProfile = async () => {
+    const user_id = localStorage.getItem("discordID");
+    try {
+      await axios.post("http://localhost:8081/user-profile", {
+        user_id,
+        username,
+        bio,
+        web_link: website,
+      });
+      setSnackbarMessage("Profile saved successfully.");
+      setSnackbarSeverity("success");
+      setSnackbarOpen(true);
+    } catch (error) {
+      console.error("Error saving profile:", error);
+      setSnackbarMessage("Failed to save profile.");
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
+    }
+  };
+
+  const handleSearchMembers = async () => {
+    try {
+      const response = await fetch(`http://localhost:8081/search-member/${searchQuery}`);
+      const result = await response.json();
+  
+      if (response.ok) {
+        setSearchResults({
+          user_id: result.user_id,
+          username: result.username,
+          bio: result.bio,
+          web_link: result.web_link,
+        });
+      } else {
+        console.error('Search failed:', result.message);
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    }
+  };
+
+  const handleUsernameChange = (e) => {
+    const value = e.target.value;
+    const usernameRegex = /^[a-zA-Z0-9-_]+$/;
+
+    if (usernameRegex.test(value)) {
+      setUsername(value);
+    } else {
+      setSnackbarMessage("Username can only contain letters, numbers, hyphens, and underscores.");
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
+    }
   };
 
   useEffect(() => {
@@ -110,7 +194,7 @@ const Settings = () => {
         }
 
         if (mergedPermissions.announcements === false) {
-                    navigate("/dashboard");
+          navigate("/dashboard");
         }
       } catch (error) {
         console.error("Error fetching roles and permissions:", error.message);
@@ -225,7 +309,8 @@ const Settings = () => {
 
       if (response.data.valid) {
         setUser(response.data.user);
-        document.title = "Discord Community | Word Counter";
+        localStorage.setItem("discordAvatar", response.data.user.avatar);
+        document.title = "Discord Community | Settings";
         const favicon = document.querySelector('link[rel="icon"]');
         favicon.href = TranslatorFavicon;
       } else {
@@ -338,9 +423,7 @@ const Settings = () => {
             onMouseEnter={() => handleMenuItemHover(16)}
             onMouseLeave={handleMenuItemLeave}
           >
-            <ForumIcon
-              style={{ marginRight: "10px", marginBottom: "-6px" }}
-            />{" "}
+            <ForumIcon style={{ marginRight: "10px", marginBottom: "-6px" }} />{" "}
             Community
           </li>
           <li
@@ -349,14 +432,16 @@ const Settings = () => {
                 ? { ...styles.menuItem, backgroundColor: "black" }
                 : styles.menuItem
             }
-            onClick={() => handleMenuItemClick("/recruitment")}            onMouseEnter={() => handleMenuItemHover(18)}
+            onClick={() => handleMenuItemClick("/recruitment")}
+            onMouseEnter={() => handleMenuItemHover(18)}
             onMouseLeave={handleMenuItemLeave}
           >
-            <AssistantPhotoIcon              style={{ marginRight: "10px", marginBottom: "-6px" }}
+            <AssistantPhotoIcon
+              style={{ marginRight: "10px", marginBottom: "-6px" }}
             />{" "}
             Recruitment
           </li>
-          
+
           <li
             style={
               hoveredItem === 15
@@ -403,41 +488,39 @@ const Settings = () => {
             Settings
           </li>
           {menuItemsVisibility.bot_management && (
-
-          <li
-            style={
-              hoveredItem === 10
-                ? { ...styles.menuItem, backgroundColor: "black" }
-                : styles.menuItem
-            }
-            onClick={() => handleMenuItemClick("/bot_management")}
-            onMouseEnter={() => handleMenuItemHover(10)}
-            onMouseLeave={handleMenuItemLeave}
-          >
-            <SmartToyIcon
-              style={{ marginRight: "10px", marginBottom: "-6px" }}
-            />{" "}
-            Bot Management
-          </li>
+            <li
+              style={
+                hoveredItem === 10
+                  ? { ...styles.menuItem, backgroundColor: "black" }
+                  : styles.menuItem
+              }
+              onClick={() => handleMenuItemClick("/bot_management")}
+              onMouseEnter={() => handleMenuItemHover(10)}
+              onMouseLeave={handleMenuItemLeave}
+            >
+              <SmartToyIcon
+                style={{ marginRight: "10px", marginBottom: "-6px" }}
+              />{" "}
+              Bot Management
+            </li>
           )}
           {menuItemsVisibility.community_events && (
-          <li
-            style={
-              hoveredItem === 11
-                ? { ...styles.menuItem, backgroundColor: "black" }
-                : styles.menuItem
-            }
-            onClick={() => handleMenuItemClick("/community_events")}
-            onMouseEnter={() => handleMenuItemHover(11)}
-            onMouseLeave={handleMenuItemLeave}
-          >
-            <SportsScoreIcon
-              style={{ marginRight: "10px", marginBottom: "-6px" }}
-            />{" "}
-            Community Events
-          </li>
+            <li
+              style={
+                hoveredItem === 11
+                  ? { ...styles.menuItem, backgroundColor: "black" }
+                  : styles.menuItem
+              }
+              onClick={() => handleMenuItemClick("/community_events")}
+              onMouseEnter={() => handleMenuItemHover(11)}
+              onMouseLeave={handleMenuItemLeave}
+            >
+              <SportsScoreIcon
+                style={{ marginRight: "10px", marginBottom: "-6px" }}
+              />{" "}
+              Community Events
+            </li>
           )}
-
 
           {menuItemsVisibility.logs && (
             <li
@@ -492,10 +575,131 @@ const Settings = () => {
           )}
         </ul>
       </div>
-        <div style={styles.whiteContainer}>
+      <Paper elevation={3} sx={styles.whiteContainer}>
+        <Box sx={styles.centeredContent}>
+          <Avatar alt="User Avatar" src={avatar} sx={styles.avatar} />
+          <Typography variant="h5" color="primary" gutterBottom>
+            Edit Profile
+          </Typography>
+        </Box>
 
-          
-      </div>
+        <Box sx={styles.section}>
+          <TextField
+            label="Username"
+            variant="outlined"
+            fullWidth
+            value={username}
+            onChange={handleUsernameChange}
+            sx={styles.inputField}
+          />
+
+          <TextField
+            label="Bio"
+            variant="outlined"
+            multiline
+            rows={4}
+            fullWidth
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            sx={styles.inputField}
+          />
+
+          <TextField
+            label="Website Link"
+            variant="outlined"
+            fullWidth
+            value={website}
+            onChange={(e) => setWebsite(e.target.value)}
+            sx={styles.inputField}
+          />
+
+          <Button
+            variant="contained"
+            color="primary"
+            fullWidth
+            onClick={handleSaveProfile}
+            sx={styles.button}
+          >
+            Save Profile
+          </Button>
+        </Box>
+
+        <Divider sx={{ marginBottom: "20px" }} />
+
+        <Box sx={styles.section}>
+    <Typography variant="h5" color="secondary" gutterBottom>
+      Find Profiles
+    </Typography>
+
+    <TextField
+      label="Search Members"
+      variant="outlined"
+      fullWidth
+      value={searchQuery}
+      onChange={(e) => setSearchQuery(e.target.value)}
+      sx={styles.inputField}
+    />
+
+    <Button
+      variant="contained"
+      color="secondary"
+      fullWidth
+      onClick={handleSearchMembers}
+      sx={styles.button}
+    >
+      Search
+    </Button>
+
+    {searchResults && (
+      <Card sx={{ maxWidth: 345, marginTop: '20px' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', padding: '16px' }}>
+          <Avatar
+            alt="User Avatar"
+            src={searchResults.avatarUrl}
+            sx={{ width: 64, height: 64, marginRight: '16px' }}
+          />
+          <Box>
+            <Typography variant="h6" color="textPrimary">
+              {searchQuery}
+            </Typography>
+            <Typography variant="body2" color="textSecondary">
+              {searchResults.user_id}
+            </Typography>
+          </Box>
+        </Box>
+        <CardContent>
+          <Typography variant="body2" color="textSecondary">
+            {searchResults.bio}
+          </Typography>
+          <br></br>
+          {searchResults.web_link && (
+          <Button
+            variant="contained"
+            color="primary"
+            fullWidth
+            onClick={() => window.open(searchResults.web_link, '_blank')}
+          >
+            Check my Website
+          </Button>
+        )}
+        </CardContent>
+      </Card>
+    )}
+  </Box>
+      </Paper>
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
+        onClose={() => setSnackbarOpen(false)}
+      >
+        <Alert
+          onClose={() => setSnackbarOpen(false)}
+          severity={snackbarSeverity}
+          sx={{ width: "100%" }}
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </div>
   );
 };
@@ -595,11 +799,33 @@ const styles = {
     backgroundColor: "rgba(255, 255, 255, 0.8)",
     width: "50%",
     marginLeft: "15%",
-    marginTop: "2%",
+    marginTop: "1.5%",
     marginBottom: "2%",
     padding: "20px",
     borderRadius: "10px",
     boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+  },
+  section: {
+    marginBottom: "30px",
+  },
+  inputField: {
+    marginBottom: "20px",
+  },
+  button: {
+    marginTop: "15px",
+    padding: "10px 20px",
+  },
+  avatar: {
+    width: "140px",
+    height: "140px",
+    margin: "0 auto 20px",
+    border: "3px solid #3f51b5",
+  },
+  centeredContent: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    flexDirection: "column",
   },
 };
 

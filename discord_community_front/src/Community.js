@@ -298,7 +298,7 @@ const [snackbarSeverity, setSnackbarSeverity] = useState('success');
 
       if (response.data.valid) {
         setUser(response.data.user);
-        document.title = "Discord Community | Word Counter";
+        document.title = "Discord Community | Community";
         const favicon = document.querySelector('link[rel="icon"]');
         favicon.href = TranslatorFavicon;
       } else {

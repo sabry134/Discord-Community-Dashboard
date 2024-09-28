@@ -769,7 +769,7 @@ const ChannelGroups = () => {
                     <IconButton
                       onClick={() => handleDeleteGroup(group.group_name)}
                     >
-                      <Delete /> {/* Delete Icon */}
+                      <Delete />
                     </IconButton>
                   </TableCell>
                 </TableRow>
@@ -788,7 +788,6 @@ const ChannelGroups = () => {
                   {group.channel_id.map((channel, index) => (
                     <TableRow key={index}>
                       <TableCell>Channel Name: {channel}</TableCell>{" "}
-                      {/* Displaying Channel Name */}
                     </TableRow>
                   ))}
                 </TableBody>

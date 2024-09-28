@@ -640,7 +640,6 @@ const Dashboard = () => {
         </Button>
       </div>
 
-      {/* Staff List Dialog */}
       <Dialog open={openStaffDialog} onClose={handleCloseStaffDialog}>
         <DialogTitle>Staff List</DialogTitle>
         <DialogContent style={styles.dialog}>
@@ -653,7 +652,6 @@ const Dashboard = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Rules Dialog */}
       <Dialog open={openRulesDialog} onClose={handleCloseRulesDialog}>
         <DialogTitle>Community Rules</DialogTitle>
         <DialogContent style={styles.dialog}>

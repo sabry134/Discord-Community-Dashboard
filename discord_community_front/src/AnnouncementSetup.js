@@ -742,7 +742,6 @@ const AnnouncementSetup = () => {
     <Typography>No announcements available</Typography>
   )}
 
-  {/* Dialog for creating or editing announcements */}
   <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
     <DialogTitle>{selectedAnnouncement ? 'Edit Announcement' : 'New Announcement'}</DialogTitle>
     <DialogContent>
